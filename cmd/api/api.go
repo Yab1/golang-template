@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Yab1/golang-template/internal/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
@@ -12,12 +13,21 @@ import (
 
 type application struct {
 	config config
+	store  store.Storage
 	logger *zap.SugaredLogger
 }
 
 type config struct {
 	addr string
 	env  string
+	db   dbConfig
+}
+
+type dbConfig struct {
+	addr         string
+	maxOpenConns int
+	maxIdleConns int
+	maxIdleTime  string
 }
 
 func (app *application) mount() http.Handler {
