@@ -14,10 +14,10 @@ func main() {
 		addr: env.GetString("ADDR", ":8080"),
 		env:  env.GetString("ENV", "development"),
 		db: dbConfig{
-			addr:         env.GetString("DB_ADDR", "postgres://admin:password@localhost/golang_template?sslmode=disable"),
-			maxOpenConns: env.GetInt("DB_MAX_OPEN_CONNS", 30),
-			maxIdleConns: env.GetInt("DB_MAX_IDLE_CONNS", 30),
-			maxIdleTime:  env.GetString("DB_MAX_IDLE_TIME", "15m"),
+			addr:            env.GetString("DB_ADDR", "postgres://admin:password@localhost/golang_template?sslmode=disable"),
+			maxConns:        env.GetInt("DB_MAX_CONNS", 30),
+			minConns:        env.GetInt("DB_MIN_CONNS", 2),
+			maxConnIdleTime: env.GetString("DB_MAX_CONN_IDLE_TIME", "15m"),
 		},
 	}
 
@@ -26,9 +26,9 @@ func main() {
 
 	db, err := db.New(
 		cfg.db.addr,
-		cfg.db.maxOpenConns,
-		cfg.db.maxIdleConns,
-		cfg.db.maxIdleTime,
+		cfg.db.maxConns,
+		cfg.db.minConns,
+		cfg.db.maxConnIdleTime,
 	)
 	if err != nil {
 		logger.Fatal(err)

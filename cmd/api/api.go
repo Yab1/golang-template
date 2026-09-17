@@ -24,10 +24,10 @@ type config struct {
 }
 
 type dbConfig struct {
-	addr         string
-	maxOpenConns int
-	maxIdleConns int
-	maxIdleTime  string
+	addr            string
+	maxConns        int
+	minConns        int
+	maxConnIdleTime string
 }
 
 func (app *application) mount() http.Handler {

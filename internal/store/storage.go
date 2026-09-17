@@ -28,9 +28,9 @@ func withTx(db *pgxpool.Pool, ctx context.Context, fn func(pgx.Tx) error) error 
 	if err != nil {
 		return err
 	}
+	defer tx.Rollback(ctx)
 
 	if err := fn(tx); err != nil {
-		_ = tx.Rollback(ctx)
 		return err
 	}
 

@@ -7,16 +7,16 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func New(addr string, maxOpenConns, maxIdleConns int, maxIdleTime string) (*pgxpool.Pool, error) {
+func New(addr string, maxConns, minConns int, maxConnIdleTime string) (*pgxpool.Pool, error) {
 	config, err := pgxpool.ParseConfig(addr)
 	if err != nil {
 		return nil, err
 	}
 
-	config.MaxConns = int32(maxOpenConns)
-	config.MinConns = int32(maxIdleConns)
+	config.MaxConns = int32(maxConns)
+	config.MinConns = int32(minConns)
 
-	duration, err := time.ParseDuration(maxIdleTime)
+	duration, err := time.ParseDuration(maxConnIdleTime)
 	if err != nil {
 		return nil, err
 	}
