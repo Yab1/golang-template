@@ -14,7 +14,7 @@ func main() {
 		addr: env.GetString("ADDR", ":8080"),
 		env:  env.GetString("ENV", "development"),
 		db: dbConfig{
-			addr:            env.GetString("DB_ADDR", "postgres://admin:password@localhost/golang_template?sslmode=disable"),
+			addr:            env.GetString("DB_ADDR", "postgres://admin:password@localhost:5432/golang_template?sslmode=disable"),
 			maxConns:        env.GetInt("DB_MAX_CONNS", 30),
 			minConns:        env.GetInt("DB_MIN_CONNS", 2),
 			maxConnIdleTime: env.GetString("DB_MAX_CONN_IDLE_TIME", "15m"),
