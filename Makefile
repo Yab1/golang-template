@@ -2,6 +2,10 @@ include .envrc
 
 MIGRATIONS_PATH = ./cmd/migrate/migrations
 
+.PHONY: run
+run:
+	@air
+
 .PHONY: migrate-create
 migrate-create:
 	@migrate create -seq -ext sql -dir $(MIGRATIONS_PATH) $(filter-out $@,$(MAKECMDGOALS))
