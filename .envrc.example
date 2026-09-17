@@ -1,0 +1,12 @@
+# Copy to .envrc and adjust. Then: direnv allow
+# direnv loads these into your shell when you cd into this project.
+
+# --- app ---
+export ADDR=:8080
+export ENV=development
+
+# --- database ---
+export DB_ADDR=postgres://admin:password@localhost/golang_template?sslmode=disable
+export DB_MAX_CONNS=30
+export DB_MIN_CONNS=2
+export DB_MAX_CONN_IDLE_TIME=15m

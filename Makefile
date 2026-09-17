@@ -1,5 +1,6 @@
+include .envrc
+
 MIGRATIONS_PATH = ./cmd/migrate/migrations
-DB_ADDR ?= postgres://admin:password@localhost/golang_template?sslmode=disable
 
 .PHONY: migrate-create
 migrate-create:
