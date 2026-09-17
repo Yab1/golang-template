@@ -2,12 +2,17 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func New(addr string, maxConns, minConns int, maxConnIdleTime string) (*pgxpool.Pool, error) {
+	if minConns > maxConns {
+		return nil, fmt.Errorf("db: minConns (%d) cannot be greater than maxConns (%d)", minConns, maxConns)
+	}
+
 	config, err := pgxpool.ParseConfig(addr)
 	if err != nil {
 		return nil, err
