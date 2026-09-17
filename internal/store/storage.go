@@ -2,9 +2,11 @@ package store
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
@@ -14,23 +16,23 @@ var (
 )
 
 type Storage struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
-func NewStorage(db *sql.DB) Storage {
+func NewStorage(db *pgxpool.Pool) Storage {
 	return Storage{db: db}
 }
 
-func withTx(db *sql.DB, ctx context.Context, fn func(*sql.Tx) error) error {
-	tx, err := db.BeginTx(ctx, nil)
+func withTx(db *pgxpool.Pool, ctx context.Context, fn func(pgx.Tx) error) error {
+	tx, err := db.Begin(ctx)
 	if err != nil {
 		return err
 	}
 
 	if err := fn(tx); err != nil {
-		_ = tx.Rollback()
+		_ = tx.Rollback(ctx)
 		return err
 	}
 
-	return tx.Commit()
+	return tx.Commit(ctx)
 }
