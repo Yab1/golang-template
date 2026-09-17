@@ -16,11 +16,13 @@ var (
 )
 
 type Storage struct {
-	db *pgxpool.Pool
+	Users *UserStore
 }
 
 func NewStorage(db *pgxpool.Pool) Storage {
-	return Storage{db: db}
+	return Storage{
+		Users: &UserStore{db: db},
+	}
 }
 
 func withTx(db *pgxpool.Pool, ctx context.Context, fn func(pgx.Tx) error) error {
