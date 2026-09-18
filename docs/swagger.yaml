@@ -1,0 +1,741 @@
+basePath: /api/v1
+definitions:
+  github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse:
+    properties:
+      error:
+        example: unauthorized
+        type: string
+      request_id:
+        example: abc123
+        type: string
+    type: object
+  github_com_Yab1_golang-template_internal_platform_httpx.ListResponse:
+    properties:
+      meta:
+        $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.Meta'
+      results: {}
+      status:
+        enum:
+        - success
+        example: success
+        type: string
+    type: object
+  github_com_Yab1_golang-template_internal_platform_httpx.Meta:
+    properties:
+      pagination:
+        $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.Pagination'
+      version:
+        example: "1"
+        type: string
+    type: object
+  github_com_Yab1_golang-template_internal_platform_httpx.ObjectResponse:
+    properties:
+      meta:
+        $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.Meta'
+      result: {}
+      status:
+        enum:
+        - success
+        example: success
+        type: string
+    type: object
+  github_com_Yab1_golang-template_internal_platform_httpx.Pagination:
+    properties:
+      limit:
+        example: 20
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      total:
+        example: 42
+        type: integer
+    type: object
+  modules_file.UploadResponse:
+    properties:
+      content_type:
+        type: string
+      driver:
+        type: string
+      key:
+        type: string
+      size:
+        type: integer
+      url:
+        type: string
+    type: object
+  modules_post.CreatePostPayload:
+    properties:
+      content:
+        maxLength: 10000
+        type: string
+      tags:
+        items:
+          type: string
+        maxItems: 5
+        type: array
+      title:
+        maxLength: 255
+        type: string
+    required:
+    - content
+    - title
+    type: object
+  modules_post.Post:
+    properties:
+      content:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      reference_id:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+      version:
+        type: integer
+    type: object
+  modules_post.UpdatePostPayload:
+    properties:
+      content:
+        maxLength: 10000
+        type: string
+      tags:
+        items:
+          type: string
+        maxItems: 5
+        type: array
+      title:
+        maxLength: 255
+        type: string
+    type: object
+  modules_user.CreateUserPayload:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      password:
+        maxLength: 72
+        minLength: 3
+        type: string
+      username:
+        maxLength: 255
+        type: string
+    required:
+    - email
+    - password
+    - username
+    type: object
+  modules_user.CreateUserTokenPayload:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      password:
+        maxLength: 72
+        minLength: 3
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  modules_user.LogoutPayload:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  modules_user.RefreshPayload:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  modules_user.Role:
+    properties:
+      description:
+        type: string
+      id:
+        type: integer
+      level:
+        type: integer
+      name:
+        type: string
+    type: object
+  modules_user.TokenResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+      token_type:
+        type: string
+    type: object
+  modules_user.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      reference_id:
+        type: string
+      role:
+        $ref: '#/definitions/modules_user.Role'
+      role_id:
+        type: integer
+      updated_at:
+        type: string
+      username:
+        type: string
+    type: object
+externalDocs:
+  description: External documentation
+  url: https://yeabsera-dev.vercel.app/
+host: localhost:8080
+info:
+  contact:
+    email: yeabsera.dev@gmail.com
+    name: Yeabsera
+    url: https://yeabsera-dev.vercel.app/
+  description: 'REST API template: JWT access+refresh, RBAC, posts CRUD, files (local/minio/s3),
+    mail, Redis rate limiting, human reference ids.'
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: https://www.google.com/policies/terms/
+  title: Golang Template API
+  version: 0.0.1
+paths:
+  /authentication/logout:
+    post:
+      consumes:
+      - application/json
+      description: Revoke the refresh token and blacklist the current access token
+        jti
+      parameters:
+      - description: Refresh token
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/modules_user.LogoutPayload'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout
+      tags:
+      - authentication
+  /authentication/logout-all:
+    post:
+      description: Revoke every refresh token and bump token_version so existing access
+        tokens die
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout all sessions
+      tags:
+      - authentication
+  /authentication/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Rotate refresh token and issue a new access token. Reuse of a revoked
+        refresh token kills all sessions.
+      parameters:
+      - description: Refresh token
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/modules_user.RefreshPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ObjectResponse'
+            - properties:
+                result:
+                  $ref: '#/definitions/modules_user.TokenResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+      summary: Refresh tokens
+      tags:
+      - authentication
+  /authentication/token:
+    post:
+      consumes:
+      - application/json
+      description: Exchange email and password for access + refresh JWTs
+      parameters:
+      - description: Credentials
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/modules_user.CreateUserTokenPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ObjectResponse'
+            - properties:
+                result:
+                  $ref: '#/definitions/modules_user.TokenResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+      summary: Login
+      tags:
+      - authentication
+  /files:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Multipart form field "file". Backend is local, s3, or minio via
+        STORAGE_DRIVER.
+      parameters:
+      - description: File
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ObjectResponse'
+            - properties:
+                result:
+                  $ref: '#/definitions/modules_file.UploadResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Upload a file
+      tags:
+      - files
+  /files/{key}:
+    delete:
+      parameters:
+      - description: Object key
+        in: path
+        name: key
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a file
+      tags:
+      - files
+    get:
+      description: Streams from local disk, or redirects to a presigned S3/MinIO URL
+      parameters:
+      - description: Object key
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+      summary: Get a file
+      tags:
+      - files
+  /posts:
+    get:
+      consumes:
+      - application/json
+      description: List posts with pagination, sorting, search, and tag filters (public)
+      parameters:
+      - default: 20
+        description: Page size (1-100)
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      - default: created_at
+        description: Sort field
+        enum:
+        - created_at
+        - updated_at
+        - title
+        in: query
+        name: sort_by
+        type: string
+      - default: desc
+        description: Sort order
+        enum:
+        - asc
+        - desc
+        in: query
+        name: order
+        type: string
+      - description: Search title/content
+        in: query
+        name: search
+        type: string
+      - description: Comma-separated tags (AND / contains all)
+        in: query
+        name: tags
+        type: string
+      - description: Filter by author UUID
+        in: query
+        name: user_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ListResponse'
+            - properties:
+                results:
+                  items:
+                    $ref: '#/definitions/modules_post.Post'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+      summary: List posts
+      tags:
+      - posts
+    post:
+      consumes:
+      - application/json
+      description: Create a post as the authenticated user
+      parameters:
+      - description: Post payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/modules_post.CreatePostPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ObjectResponse'
+            - properties:
+                result:
+                  $ref: '#/definitions/modules_post.Post'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a post
+      tags:
+      - posts
+  /posts/{postID}:
+    delete:
+      consumes:
+      - application/json
+      description: Owner or admin+ can delete
+      parameters:
+      - description: Post UUID or reference_id (e.g. GTL-PST-A7K2M)
+        in: path
+        name: postID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a post
+      tags:
+      - posts
+    get:
+      consumes:
+      - application/json
+      description: Get a post by ID (public)
+      parameters:
+      - description: Post UUID or reference_id (e.g. GTL-PST-A7K2M)
+        in: path
+        name: postID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ObjectResponse'
+            - properties:
+                result:
+                  $ref: '#/definitions/modules_post.Post'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+      summary: Get a post
+      tags:
+      - posts
+    patch:
+      consumes:
+      - application/json
+      description: Owner or moderator+ can update. Optimistic locking via version.
+      parameters:
+      - description: Post UUID or reference_id (e.g. GTL-PST-A7K2M)
+        in: path
+        name: postID
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/modules_post.UpdatePostPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ObjectResponse'
+            - properties:
+                result:
+                  $ref: '#/definitions/modules_post.Post'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a post
+      tags:
+      - posts
+  /users:
+    post:
+      consumes:
+      - application/json
+      description: Create a user with the default "user" role
+      parameters:
+      - description: User payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/modules_user.CreateUserPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ObjectResponse'
+            - properties:
+                result:
+                  $ref: '#/definitions/modules_user.User'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+      summary: Register user
+      tags:
+      - users
+schemes:
+- http
+- https
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and the access JWT (or AUTH_DEV_TOKEN
+      in development).
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
