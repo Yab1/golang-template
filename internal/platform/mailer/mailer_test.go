@@ -5,8 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Yab1/golang-template/internal/platform/config"
 	"go.uber.org/zap"
+
+	"github.com/Yab1/golang-template/internal/platform/config"
 )
 
 func TestNopSend(t *testing.T) {

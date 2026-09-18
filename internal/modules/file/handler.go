@@ -7,11 +7,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+
 	"github.com/Yab1/golang-template/internal/platform/blob"
 	"github.com/Yab1/golang-template/internal/platform/config"
 	"github.com/Yab1/golang-template/internal/platform/httpx"
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 )
 
 type Module struct {
@@ -87,7 +88,7 @@ func (m *Module) uploadHandler(w http.ResponseWriter, r *http.Request) {
 		m.respond.BadRequest(w, r, fmt.Errorf("missing form field file"))
 		return
 	}
-	defer fh.Close()
+	defer func() { _ = fh.Close() }()
 
 	if header.Size > m.maxBytes {
 		m.respond.BadRequest(w, r, fmt.Errorf("file exceeds max size"))
@@ -162,7 +163,7 @@ func (m *Module) getHandler(w http.ResponseWriter, r *http.Request) {
 		m.respond.NotFound(w, r, err)
 		return
 	}
-	defer obj.Body.Close()
+	defer func() { _ = obj.Body.Close() }()
 
 	w.Header().Set("Content-Type", obj.ContentType)
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", obj.Size))
@@ -172,14 +173,14 @@ func (m *Module) getHandler(w http.ResponseWriter, r *http.Request) {
 
 // deleteFileHandler godoc
 //
-//	@Summary		Delete a file
-//	@Tags			files
-//	@Param			key	path	string	true	"Object key"
-//	@Success		204	{string}	string	"No Content"
-//	@Failure		401	{object}	httpx.ErrorResponse
-//	@Failure		500	{object}	httpx.ErrorResponse
-//	@Security		BearerAuth
-//	@Router			/files/{key} [delete]
+//	@Summary	Delete a file
+//	@Tags		files
+//	@Param		key	path		string	true	"Object key"
+//	@Success	204	{string}	string	"No Content"
+//	@Failure	401	{object}	httpx.ErrorResponse
+//	@Failure	500	{object}	httpx.ErrorResponse
+//	@Security	BearerAuth
+//	@Router		/files/{key} [delete]
 func (m *Module) deleteHandler(w http.ResponseWriter, r *http.Request) {
 	key := chi.URLParam(r, "key")
 	if err := m.store.Delete(r.Context(), key); err != nil {

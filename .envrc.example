@@ -1,5 +1,6 @@
 # Copy to .envrc and adjust. Then: direnv allow
 # This repo does not ship docker-compose. Point DB/redis/minio/mail at services you already run.
+# Sections match internal/platform/config/*.go loaders.
 
 # --- app ---
 export ADDR=:8080
@@ -7,7 +8,20 @@ export ENV=development
 export APP_NAME=golang-template
 # 3-letter platform prefix for human reference ids: GTL-USR-A7K2M
 export REF_PREFIX=GTL
+
+# --- log ---
+export LOG_LEVEL=debug
+export LOG_FORMAT=console
+
+# --- http ---
 export PUBLIC_BASE_URL=http://localhost:8080
+export CORS_ENABLED=true
+export CORS_ALLOWED_ORIGINS=*
+export SHUTDOWN_TIMEOUT=10s
+# CIDRs that may send X-Forwarded-For / X-Real-IP. Empty = trust RemoteAddr only.
+export TRUSTED_PROXIES=
+
+# --- swagger ---
 export SWAGGER_ENABLED=true
 export SWAGGER_TITLE=Golang Template API
 export SWAGGER_DESCRIPTION=REST API template: auth (access+refresh), RBAC, posts, files, mail, rate limiting, reference ids.
@@ -18,13 +32,6 @@ export SWAGGER_CONTACT_EMAIL=yeabsera.dev@gmail.com
 export SWAGGER_CONTACT_URL=https://yeabsera-dev.vercel.app/
 export SWAGGER_EXTERNAL_DOCS_URL=https://yeabsera-dev.vercel.app/
 export SWAGGER_EXTERNAL_DOCS_DESC=External documentation
-export CORS_ENABLED=true
-export CORS_ALLOWED_ORIGINS=*
-export SHUTDOWN_TIMEOUT=10s
-export LOG_LEVEL=debug
-export LOG_FORMAT=console
-# CIDRs that may send X-Forwarded-For / X-Real-IP. Empty = trust RemoteAddr only.
-export TRUSTED_PROXIES=
 
 # --- database ---
 export DB_ADDR=postgres://admin:password@localhost:5432/golang_template?sslmode=disable
@@ -40,8 +47,12 @@ export AUTH_TOKEN_EXP=15m
 export AUTH_REFRESH_EXP=168h
 export AUTH_TOKEN_ISS=golang-template
 export AUTH_TOKEN_AUD=golang-template
+# Require email verification before login (seed admin is always active)
+export AUTH_EMAIL_VERIFY_REQUIRED=true
+export AUTH_VERIFY_TOKEN_EXP=24h
+export AUTH_RESET_TOKEN_EXP=1h
 # Authorization: Bearer $AUTH_DEV_TOKEN  (skips JWT; needs AUTH_DEV_USER_ID)
-export AUTH_DEV_TOKEN=
+export AUTH_DEV_TOKEN=dev-token
 export AUTH_DEV_USER_ID=
 
 # --- seed (idempotent admin on boot) ---

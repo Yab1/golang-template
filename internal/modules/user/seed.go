@@ -27,6 +27,7 @@ func (m *Module) SeedAdmin(ctx context.Context, email, username, password, role 
 	u := &User{
 		Email:    email,
 		Username: username,
+		IsActive: true,
 		Role:     Role{Name: role},
 	}
 	if err := u.Password.Set(password); err != nil {

@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Yab1/golang-template/internal/platform/refid"
-	"github.com/Yab1/golang-template/internal/platform/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/Yab1/golang-template/internal/platform/refid"
+	"github.com/Yab1/golang-template/internal/platform/storage"
 )
 
 const RefCode = "PST"

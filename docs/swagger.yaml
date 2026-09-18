@@ -118,6 +118,18 @@ definitions:
         maxLength: 255
         type: string
     type: object
+  modules_user.ChangePasswordPayload:
+    properties:
+      current_password:
+        type: string
+      new_password:
+        maxLength: 72
+        minLength: 3
+        type: string
+    required:
+    - current_password
+    - new_password
+    type: object
   modules_user.CreateUserPayload:
     properties:
       email:
@@ -148,6 +160,14 @@ definitions:
     - email
     - password
     type: object
+  modules_user.EmailPayload:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+    required:
+    - email
+    type: object
   modules_user.LogoutPayload:
     properties:
       refresh_token:
@@ -162,6 +182,18 @@ definitions:
     required:
     - refresh_token
     type: object
+  modules_user.ResetPasswordPayload:
+    properties:
+      password:
+        maxLength: 72
+        minLength: 3
+        type: string
+      token:
+        type: string
+    required:
+    - password
+    - token
+    type: object
   modules_user.Role:
     properties:
       description:
@@ -172,6 +204,13 @@ definitions:
         type: integer
       name:
         type: string
+    type: object
+  modules_user.TokenPayload:
+    properties:
+      token:
+        type: string
+    required:
+    - token
     type: object
   modules_user.TokenResponse:
     properties:
@@ -192,6 +231,8 @@ definitions:
         type: string
       id:
         type: string
+      is_active:
+        type: boolean
       reference_id:
         type: string
       role:
@@ -221,6 +262,68 @@ info:
   title: Golang Template API
   version: 0.0.1
 paths:
+  /authentication/change-password:
+    post:
+      consumes:
+      - application/json
+      description: Authenticated password change. Revokes all refresh sessions.
+      parameters:
+      - description: Current + new password
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/modules_user.ChangePasswordPayload'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Change password
+      tags:
+      - authentication
+  /authentication/forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: Email a password-reset token if the account exists. Always 204.
+      parameters:
+      - description: Email
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/modules_user.EmailPayload'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+      summary: Forgot password
+      tags:
+      - authentication
   /authentication/logout:
     post:
       consumes:
@@ -318,6 +421,63 @@ paths:
       summary: Refresh tokens
       tags:
       - authentication
+  /authentication/resend-verification:
+    post:
+      consumes:
+      - application/json
+      description: Send a new email verification token. Always 204 to avoid account
+        enumeration.
+      parameters:
+      - description: Email
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/modules_user.EmailPayload'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+      summary: Resend verification email
+      tags:
+      - authentication
+  /authentication/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Consume reset token, set new password, revoke all sessions
+      parameters:
+      - description: Token + new password
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/modules_user.ResetPasswordPayload'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+      summary: Reset password
+      tags:
+      - authentication
   /authentication/token:
     post:
       consumes:
@@ -350,11 +510,43 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
       summary: Login
+      tags:
+      - authentication
+  /authentication/verify-email:
+    post:
+      consumes:
+      - application/json
+      description: Consume email verification token and activate the account
+      parameters:
+      - description: Verification token
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/modules_user.TokenPayload'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse'
+      summary: Verify email
       tags:
       - authentication
   /files:
@@ -693,7 +885,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create a user with the default "user" role
+      description: Create a user with the default "user" role. When AUTH_EMAIL_VERIFY_REQUIRED=true
+        the account stays inactive until email verification.
       parameters:
       - description: User payload
         in: body

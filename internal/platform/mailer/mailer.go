@@ -6,8 +6,9 @@ import (
 	"mime"
 	"strings"
 
-	"github.com/Yab1/golang-template/internal/platform/config"
 	"go.uber.org/zap"
+
+	"github.com/Yab1/golang-template/internal/platform/config"
 )
 
 type Message struct {

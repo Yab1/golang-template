@@ -50,7 +50,7 @@ func (app *application) handleHealthCheck(w http.ResponseWriter, r *http.Request
 			"dev_token":      app.config.Auth.DevToken != "",
 			"rate_limit":     app.config.RateLimit.Enabled,
 			"redis":          app.config.Redis.Enabled,
-			"swagger":        app.config.HTTP.SwaggerEnabled,
+			"swagger":        app.config.Swagger.Enabled,
 			"cors":           app.config.HTTP.CORSEnabled,
 			"files":          app.config.Files.Enabled,
 			"storage_driver": app.config.Storage.Driver,

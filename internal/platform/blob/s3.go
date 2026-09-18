@@ -7,11 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Yab1/golang-template/internal/platform/config"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+
+	"github.com/Yab1/golang-template/internal/platform/config"
 )
 
 type S3Store struct {

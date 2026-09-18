@@ -3,9 +3,10 @@ package logger
 import (
 	"strings"
 
-	"github.com/Yab1/golang-template/internal/platform/config"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/Yab1/golang-template/internal/platform/config"
 )
 
 func New(cfg config.Log) (*zap.SugaredLogger, error) {

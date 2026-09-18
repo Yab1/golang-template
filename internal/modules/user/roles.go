@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 
-	"github.com/Yab1/golang-template/internal/platform/storage"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/Yab1/golang-template/internal/platform/storage"
 )
 
 type RoleStore struct {

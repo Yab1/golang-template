@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 
-	"github.com/Yab1/golang-template/internal/platform/refid"
-	"github.com/Yab1/golang-template/internal/platform/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/Yab1/golang-template/internal/platform/refid"
+	"github.com/Yab1/golang-template/internal/platform/storage"
 )
 
 const RefCode = "USR"
@@ -24,13 +25,14 @@ func NewStore(db *pgxpool.Pool, refs *refid.Generator) *Store {
 
 func (s *Store) Create(ctx context.Context, u *User) error {
 	query := `
-		INSERT INTO users (email, username, password, role_id, reference_id)
+		INSERT INTO users (email, username, password, role_id, reference_id, is_active)
 		VALUES (
 			$1,
 			$2,
 			$3,
 			(SELECT id FROM roles WHERE name = $4),
-			$5
+			$5,
+			$6
 		)
 		RETURNING id, role_id, created_at, updated_at
 	`
@@ -57,6 +59,7 @@ func (s *Store) Create(ctx context.Context, u *User) error {
 			u.Password.hash,
 			roleName,
 			u.ReferenceID,
+			u.IsActive,
 		).Scan(
 			&u.ID,
 			&u.RoleID,
@@ -88,7 +91,8 @@ func (s *Store) Create(ctx context.Context, u *User) error {
 func (s *Store) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	return s.getUser(ctx, `
 		SELECT
-			u.id, u.reference_id, u.email, u.username, u.password, u.role_id, u.created_at, u.updated_at,
+			u.id, u.reference_id, u.email, u.username, u.password, COALESCE(u.is_active, false),
+			u.role_id, u.created_at, u.updated_at,
 			COALESCE(u.token_version, 1),
 			r.id, r.name, r.level, COALESCE(r.description, '')
 		FROM users u
@@ -100,7 +104,8 @@ func (s *Store) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 func (s *Store) GetByEmail(ctx context.Context, email string) (*User, error) {
 	return s.getUser(ctx, `
 		SELECT
-			u.id, u.reference_id, u.email, u.username, u.password, u.role_id, u.created_at, u.updated_at,
+			u.id, u.reference_id, u.email, u.username, u.password, COALESCE(u.is_active, false),
+			u.role_id, u.created_at, u.updated_at,
 			COALESCE(u.token_version, 1),
 			r.id, r.name, r.level, COALESCE(r.description, '')
 		FROM users u
@@ -120,6 +125,7 @@ func (s *Store) getUser(ctx context.Context, query string, arg any) (*User, erro
 		&u.Email,
 		&u.Username,
 		&u.Password.hash,
+		&u.IsActive,
 		&u.RoleID,
 		&u.CreatedAt,
 		&u.UpdatedAt,
@@ -137,6 +143,45 @@ func (s *Store) getUser(ctx context.Context, query string, arg any) (*User, erro
 	}
 
 	return &u, nil
+}
+
+func (s *Store) Activate(ctx context.Context, id uuid.UUID) error {
+	query := `
+		UPDATE users
+		SET is_active = true, updated_at = NOW()
+		WHERE id = $1 AND is_active = false
+	`
+	ctx, cancel := context.WithTimeout(ctx, storage.QueryTimeoutDuration)
+	defer cancel()
+
+	tag, err := s.db.Exec(ctx, query, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		// Already active or missing — treat missing separately via GetByID callers.
+		return nil
+	}
+	return nil
+}
+
+func (s *Store) UpdatePassword(ctx context.Context, id uuid.UUID, hash []byte) error {
+	query := `
+		UPDATE users
+		SET password = $2, updated_at = NOW()
+		WHERE id = $1
+	`
+	ctx, cancel := context.WithTimeout(ctx, storage.QueryTimeoutDuration)
+	defer cancel()
+
+	tag, err := s.db.Exec(ctx, query, id, hash)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return storage.ErrNotFound
+	}
+	return nil
 }
 
 func (s *Store) IncrementTokenVersion(ctx context.Context, id uuid.UUID) (int, error) {

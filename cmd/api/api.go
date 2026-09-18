@@ -11,6 +11,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
+	"go.uber.org/zap"
+
 	"github.com/Yab1/golang-template/docs"
 	"github.com/Yab1/golang-template/internal/modules/file"
 	"github.com/Yab1/golang-template/internal/modules/post"
@@ -19,13 +27,6 @@ import (
 	"github.com/Yab1/golang-template/internal/platform/httpx"
 	"github.com/Yab1/golang-template/internal/platform/metrics"
 	"github.com/Yab1/golang-template/internal/platform/ratelimiter"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
-	httpSwagger "github.com/swaggo/http-swagger/v2"
-	"go.uber.org/zap"
 )
 
 type application struct {
@@ -43,6 +44,7 @@ type application struct {
 func (app *application) mount() http.Handler {
 	r := chi.NewRouter()
 
+	// --- middleware ---
 	r.Use(middleware.RequestID)
 	r.Use(echoRequestID)
 	r.Use(httpx.RealIP(app.config.HTTP.TrustedProxies))
@@ -53,7 +55,6 @@ func (app *application) mount() http.Handler {
 	if app.config.MetricsExposed() {
 		r.Use(metrics.Middleware)
 	}
-
 	if app.config.HTTP.CORSEnabled {
 		r.Use(cors.Handler(cors.Options{
 			AllowedOrigins:   app.config.HTTP.CORSOrigins,
@@ -65,7 +66,8 @@ func (app *application) mount() http.Handler {
 		}))
 	}
 
-	if app.config.HTTP.SwaggerEnabled {
+	// --- ops ---
+	if app.config.Swagger.Enabled {
 		applySwaggerInfo(app.config, version)
 		r.Get("/docs/*", httpSwagger.Handler(
 			httpSwagger.URL("/docs/doc.json"),
@@ -80,15 +82,14 @@ func (app *application) mount() http.Handler {
 			}),
 		))
 	}
-
 	if app.config.MetricsExposed() {
 		r.With(metrics.Protect(app.config.Metrics.Token)).Handle("/metrics", metrics.Handler())
 	}
-
 	r.Get("/live", app.handleLive)
 	r.Get("/ready", app.handleReady)
 	r.Get("/health", app.handleHealthCheck)
 
+	// --- api v1 modules ---
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(app.limiter.ByIP(toRule(app.config.RateLimit.Read)))
 		app.users.Routes(r)
@@ -168,7 +169,7 @@ func toRule(r config.Rule) ratelimiter.Rule {
 }
 
 func applySwaggerInfo(cfg config.Config, fallbackVersion string) {
-	sw := cfg.HTTP.Swagger
+	sw := cfg.Swagger
 	docs.SwaggerInfo.Title = sw.Title
 	docs.SwaggerInfo.Description = sw.Description
 	if sw.Version != "" {

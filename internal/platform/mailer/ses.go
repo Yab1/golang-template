@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Yab1/golang-template/internal/platform/config"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/ses"
 	"github.com/aws/aws-sdk-go-v2/service/ses/types"
+
+	"github.com/Yab1/golang-template/internal/platform/config"
 )
 
 type SES struct {

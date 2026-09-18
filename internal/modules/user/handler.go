@@ -22,7 +22,7 @@ type CreateUserPayload struct {
 // createUserHandler godoc
 //
 //	@Summary		Register user
-//	@Description	Create a user with the default "user" role
+//	@Description	Create a user with the default "user" role. When AUTH_EMAIL_VERIFY_REQUIRED=true the account stays inactive until email verification.
 //	@Tags			users
 //	@Accept			json
 //	@Produce		json
@@ -47,6 +47,7 @@ func (m *Module) createUserHandler(w http.ResponseWriter, r *http.Request) {
 	u := &User{
 		Email:    payload.Email,
 		Username: payload.Username,
+		IsActive: !m.verifyRequired,
 		Role: Role{
 			Name: "user",
 		},
@@ -66,7 +67,13 @@ func (m *Module) createUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m.sendWelcome(r, u)
+	if m.verifyRequired {
+		if err := m.issueEmailVerify(r.Context(), u); err != nil {
+			m.respond.Logger.Warnw("verification email failed", "email", u.Email, "error", err)
+		}
+	} else {
+		m.sendWelcome(r, u)
+	}
 
 	if err := httpx.JSONResponse(w, http.StatusCreated, u); err != nil {
 		m.respond.InternalServerError(w, r, err)

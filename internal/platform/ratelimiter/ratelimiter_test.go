@@ -9,10 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Yab1/golang-template/internal/platform/httpx"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
+
+	"github.com/Yab1/golang-template/internal/platform/httpx"
 )
 
 func TestRedisLimiter_AllowAndExhaust(t *testing.T) {

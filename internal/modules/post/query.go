@@ -5,8 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Yab1/golang-template/internal/platform/query"
 	"github.com/google/uuid"
+
+	"github.com/Yab1/golang-template/internal/platform/query"
 )
 
 var sortColumns = []string{"created_at", "updated_at", "title"}

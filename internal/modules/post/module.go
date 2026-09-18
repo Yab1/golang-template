@@ -3,11 +3,12 @@ package post
 import (
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/Yab1/golang-template/internal/platform/authz"
 	"github.com/Yab1/golang-template/internal/platform/httpx"
 	"github.com/Yab1/golang-template/internal/platform/refid"
-	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Module struct {

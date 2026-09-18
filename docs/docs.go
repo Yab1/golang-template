@@ -24,6 +24,103 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/authentication/change-password": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Authenticated password change. Revokes all refresh sessions.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "authentication"
+                ],
+                "summary": "Change password",
+                "parameters": [
+                    {
+                        "description": "Current + new password",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/modules_user.ChangePasswordPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/authentication/forgot-password": {
+            "post": {
+                "description": "Email a password-reset token if the account exists. Always 204.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "authentication"
+                ],
+                "summary": "Forgot password",
+                "parameters": [
+                    {
+                        "description": "Email",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/modules_user.EmailPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/authentication/logout": {
             "post": {
                 "security": [
@@ -176,6 +273,92 @@ const docTemplate = `{
                 }
             }
         },
+        "/authentication/resend-verification": {
+            "post": {
+                "description": "Send a new email verification token. Always 204 to avoid account enumeration.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "authentication"
+                ],
+                "summary": "Resend verification email",
+                "parameters": [
+                    {
+                        "description": "Email",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/modules_user.EmailPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/authentication/reset-password": {
+            "post": {
+                "description": "Consume reset token, set new password, revoke all sessions",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "authentication"
+                ],
+                "summary": "Reset password",
+                "parameters": [
+                    {
+                        "description": "Token + new password",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/modules_user.ResetPasswordPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/authentication/token": {
             "post": {
                 "description": "Exchange email and password for access + refresh JWTs",
@@ -227,6 +410,55 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/authentication/verify-email": {
+            "post": {
+                "description": "Consume email verification token and activate the account",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "authentication"
+                ],
+                "summary": "Verify email",
+                "parameters": [
+                    {
+                        "description": "Verification token",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/modules_user.TokenPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/github_com_Yab1_golang-template_internal_platform_httpx.ErrorResponse"
                         }
@@ -771,7 +1003,7 @@ const docTemplate = `{
         },
         "/users": {
             "post": {
-                "description": "Create a user with the default \"user\" role",
+                "description": "Create a user with the default \"user\" role. When AUTH_EMAIL_VERIFY_REQUIRED=true the account stays inactive until email verification.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1008,6 +1240,23 @@ const docTemplate = `{
                 }
             }
         },
+        "modules_user.ChangePasswordPayload": {
+            "type": "object",
+            "required": [
+                "current_password",
+                "new_password"
+            ],
+            "properties": {
+                "current_password": {
+                    "type": "string"
+                },
+                "new_password": {
+                    "type": "string",
+                    "maxLength": 72,
+                    "minLength": 3
+                }
+            }
+        },
         "modules_user.CreateUserPayload": {
             "type": "object",
             "required": [
@@ -1049,6 +1298,18 @@ const docTemplate = `{
                 }
             }
         },
+        "modules_user.EmailPayload": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "maxLength": 255
+                }
+            }
+        },
         "modules_user.LogoutPayload": {
             "type": "object",
             "required": [
@@ -1071,6 +1332,23 @@ const docTemplate = `{
                 }
             }
         },
+        "modules_user.ResetPasswordPayload": {
+            "type": "object",
+            "required": [
+                "password",
+                "token"
+            ],
+            "properties": {
+                "password": {
+                    "type": "string",
+                    "maxLength": 72,
+                    "minLength": 3
+                },
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
         "modules_user.Role": {
             "type": "object",
             "properties": {
@@ -1084,6 +1362,17 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "modules_user.TokenPayload": {
+            "type": "object",
+            "required": [
+                "token"
+            ],
+            "properties": {
+                "token": {
                     "type": "string"
                 }
             }
@@ -1116,6 +1405,9 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
                 },
                 "reference_id": {
                     "type": "string"

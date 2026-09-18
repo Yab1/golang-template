@@ -5,11 +5,12 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+
 	"github.com/Yab1/golang-template/internal/platform/authz"
 	"github.com/Yab1/golang-template/internal/platform/httpx"
 	"github.com/Yab1/golang-template/internal/platform/storage"
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 )
 
 var errUnauthorized = errors.New("unauthorized")
@@ -92,7 +93,7 @@ func (m *Module) createPostHandler(w http.ResponseWriter, r *http.Request) {
 //	@Param			limit	query		int		false	"Page size (1-100)"	default(20)
 //	@Param			offset	query		int		false	"Offset"			default(0)
 //	@Param			sort_by	query		string	false	"Sort field"		Enums(created_at, updated_at, title)	default(created_at)
-//	@Param			order	query		string	false	"Sort order"		Enums(asc, desc)					default(desc)
+//	@Param			order	query		string	false	"Sort order"		Enums(asc, desc)						default(desc)
 //	@Param			search	query		string	false	"Search title/content"
 //	@Param			tags	query		string	false	"Comma-separated tags (AND / contains all)"
 //	@Param			user_id	query		string	false	"Filter by author UUID"

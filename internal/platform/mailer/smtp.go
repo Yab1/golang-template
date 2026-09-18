@@ -80,13 +80,13 @@ func sendImplicitTLS(addr, host string, auth smtp.Auth, from, to string, raw []b
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	c, err := smtp.NewClient(conn, host)
 	if err != nil {
 		return err
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	return smtpTransmit(c, auth, from, to, raw)
 }
 
@@ -95,7 +95,7 @@ func sendStartTLS(addr, host string, auth smtp.Auth, from, to string, raw []byte
 	if err != nil {
 		return err
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	if err := c.StartTLS(&tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}); err != nil {
 		return err

@@ -6,9 +6,10 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/Yab1/golang-template/internal/platform/authn"
 	"github.com/Yab1/golang-template/internal/platform/httpx"
-	"github.com/google/uuid"
 )
 
 type contextKey string
@@ -175,7 +176,7 @@ func (g *Guard) OwnershipOrRole(requiredRole string, ownerID func(*http.Request)
 			}
 
 			if principal.RoleLevel < level {
-				g.Respond.Forbidden(w, r)
+				g.Respond.Forbidden(w, r, nil)
 				return
 			}
 

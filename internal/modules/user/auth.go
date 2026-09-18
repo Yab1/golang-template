@@ -7,12 +7,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+
 	"github.com/Yab1/golang-template/internal/platform/authn"
 	"github.com/Yab1/golang-template/internal/platform/authz"
 	"github.com/Yab1/golang-template/internal/platform/httpx"
 	"github.com/Yab1/golang-template/internal/platform/storage"
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 )
 
 type CreateUserTokenPayload struct {
@@ -46,6 +47,7 @@ type TokenResponse struct {
 //	@Success		201		{object}	httpx.ObjectResponse{result=TokenResponse}
 //	@Failure		400		{object}	httpx.ErrorResponse
 //	@Failure		401		{object}	httpx.ErrorResponse
+//	@Failure		403		{object}	httpx.ErrorResponse
 //	@Failure		500		{object}	httpx.ErrorResponse
 //	@Router			/authentication/token [post]
 func (m *Module) createTokenHandler(w http.ResponseWriter, r *http.Request) {
@@ -73,6 +75,11 @@ func (m *Module) createTokenHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err := u.Password.Compare(payload.Password); err != nil {
 		m.respond.Unauthorized(w, r, err)
+		return
+	}
+
+	if !u.IsActive {
+		m.respond.Forbidden(w, r, errors.New("email not verified"))
 		return
 	}
 

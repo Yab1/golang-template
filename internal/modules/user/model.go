@@ -13,6 +13,7 @@ type User struct {
 	Email        string    `json:"email"`
 	Username     string    `json:"username"`
 	Password     password  `json:"-"`
+	IsActive     bool      `json:"is_active"`
 	RoleID       int64     `json:"role_id"`
 	Role         Role      `json:"role"`
 	CreatedAt    time.Time `json:"created_at"`

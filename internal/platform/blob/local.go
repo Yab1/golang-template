@@ -42,7 +42,7 @@ func (s *Local) Put(_ context.Context, key, _ string, body io.Reader, _ int64) e
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	_, err = io.Copy(f, body)
 	return err
 }

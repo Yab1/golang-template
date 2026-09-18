@@ -23,6 +23,8 @@ internal/modules        one vertical slice per domain concept
 
 Copy `.envrc.example` → `.envrc`, then `direnv allow`. Flip flags without code changes.
 
+Config loaders live under `internal/platform/config/` — one file per env section (`auth.go`, `mail.go`, …). `Load()` assembles them.
+
 | Flag | Default | Effect |
 |------|---------|--------|
 | `REF_PREFIX` | first 3 of `APP_NAME` | Platform part of human ids (`GTL-USR-A7K2M`) |
@@ -30,6 +32,9 @@ Copy `.envrc.example` → `.envrc`, then `direnv allow`. Flip flags without code
 | `RBAC_ENABLED` | true | `false` skips role/ownership checks after auth |
 | `AUTH_TOKEN_EXP` | 15m | Access JWT lifetime |
 | `AUTH_REFRESH_EXP` | 168h | Refresh JWT lifetime |
+| `AUTH_EMAIL_VERIFY_REQUIRED` | true | Register creates inactive users; login blocked until verify |
+| `AUTH_VERIFY_TOKEN_EXP` | 24h | Email verify token lifetime |
+| `AUTH_RESET_TOKEN_EXP` | 1h | Password reset token lifetime |
 | `AUTH_DEV_TOKEN` | empty | `Authorization: Bearer <token>` impersonates `AUTH_DEV_USER_ID`. **Ignored unless `ENV=development`** |
 | `AUTH_DEV_USER_ID` | empty | Real user UUID used by dev-token / auth-off |
 | `RATE_LIMIT_ENABLED` | true | Redis limiter on/off |
@@ -70,6 +75,22 @@ Copy `.envrc.example` → `.envrc`, then `direnv allow`. Flip flags without code
 API routes accept **access** tokens only. Refresh JWT in `Authorization` → 401.
 
 Need migration `000004_refresh_tokens`.
+
+### Email verify + password reset
+
+Need migration `000006_email_verify_password_reset` (`users.is_active`, `user_tokens`).
+
+| Call | What |
+|------|------|
+| `POST /users` | Register. If `AUTH_EMAIL_VERIFY_REQUIRED`, `is_active=false` + verification email (token in mail; log driver prints it) |
+| `POST /authentication/verify-email` | body `{ "token" }` → activate |
+| `POST /authentication/resend-verification` | body `{ "email" }` → new verify token (always 204) |
+| `POST /authentication/forgot-password` | body `{ "email" }` → reset token email (always 204) |
+| `POST /authentication/reset-password` | body `{ "token", "password" }` → new password, revoke sessions, activate |
+| `POST /authentication/change-password` | Bearer + `{ "current_password", "new_password" }` → revoke sessions |
+| `POST /authentication/token` | Login; inactive user → **403** `email not verified` |
+
+Seed admin is always `is_active=true`.
 
 ### Reference IDs
 
@@ -145,10 +166,32 @@ Success envelope:
 ## Adding a new EMR resource
 
 1. Migration: `make migrate-create create_<resource>` then write `up`/`down` SQL.
-2. Module folder: `make new-module name=<resource>`
-3. Fill the five files (`model.go`, `store.go`, `service.go`, `handler.go`, `routes.go`).
-4. Register `module.Routes(r)` in `cmd/api/api.go` (or `main.go` wiring).
+2. Module folder: `make new-module name=<resource>` → `model.go`, `store.go`, `handler.go`, `module.go`.
+3. Fill handlers + SQL; keep SQL in `store.go`.
+4. Register `module.Routes(r)` in `cmd/api/api.go`.
 5. `make gen-docs` and `make migrate-up`.
+
+## Rename module path
+
+After cloning for a new project:
+
+```bash
+make rename MODULE=github.com/acme/myapp
+go mod tidy
+make gen-docs
+```
+
+Updates `go.mod`, Go imports, and `.golangci.yml` local-prefix.
+
+## Dev tools
+
+Pinned versions live in the `Makefile`. Install once:
+
+```bash
+make install-tools   # swag, air, migrate (postgres), golangci-lint
+make tools-versions  # print pins
+make lint
+```
 
 ## Rate limiting
 

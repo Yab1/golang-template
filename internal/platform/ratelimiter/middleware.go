@@ -7,9 +7,10 @@ import (
 	"strconv"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/Yab1/golang-template/internal/platform/authz"
 	"github.com/Yab1/golang-template/internal/platform/httpx"
-	"go.uber.org/zap"
 )
 
 type Middleware struct {

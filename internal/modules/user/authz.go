@@ -3,8 +3,9 @@ package user
 import (
 	"context"
 
-	"github.com/Yab1/golang-template/internal/platform/authz"
 	"github.com/google/uuid"
+
+	"github.com/Yab1/golang-template/internal/platform/authz"
 )
 
 func (m *Module) ByID(ctx context.Context, id uuid.UUID) (*authz.Principal, error) {
