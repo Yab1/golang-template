@@ -1,12 +1,101 @@
 # Copy to .envrc and adjust. Then: direnv allow
-# direnv loads these into your shell when you cd into this project.
+# This repo does not ship docker-compose. Point DB/redis/minio/mail at services you already run.
 
 # --- app ---
 export ADDR=:8080
 export ENV=development
+export APP_NAME=golang-template
+# 3-letter platform prefix for human reference ids: GTL-USR-A7K2M
+export REF_PREFIX=GTL
+export PUBLIC_BASE_URL=http://localhost:8080
+export SWAGGER_ENABLED=true
+export SWAGGER_TITLE=Golang Template API
+export SWAGGER_DESCRIPTION=REST API template: auth (access+refresh), RBAC, posts, files, mail, rate limiting, reference ids.
+export SWAGGER_VERSION=0.0.1
+export SWAGGER_TOS=https://www.google.com/policies/terms/
+export SWAGGER_CONTACT_NAME=Yeabsera
+export SWAGGER_CONTACT_EMAIL=yeabsera.dev@gmail.com
+export SWAGGER_CONTACT_URL=https://yeabsera-dev.vercel.app/
+export SWAGGER_EXTERNAL_DOCS_URL=https://yeabsera-dev.vercel.app/
+export SWAGGER_EXTERNAL_DOCS_DESC=External documentation
+export CORS_ENABLED=true
+export CORS_ALLOWED_ORIGINS=*
+export SHUTDOWN_TIMEOUT=10s
+export LOG_LEVEL=debug
+export LOG_FORMAT=console
+# CIDRs that may send X-Forwarded-For / X-Real-IP. Empty = trust RemoteAddr only.
+export TRUSTED_PROXIES=
 
 # --- database ---
 export DB_ADDR=postgres://admin:password@localhost:5432/golang_template?sslmode=disable
 export DB_MAX_CONNS=30
 export DB_MIN_CONNS=2
 export DB_MAX_CONN_IDLE_TIME=15m
+
+# --- auth ---
+export AUTH_REQUIRED=true
+export RBAC_ENABLED=true
+export AUTH_TOKEN_SECRET=dev-secret-change-me
+export AUTH_TOKEN_EXP=15m
+export AUTH_REFRESH_EXP=168h
+export AUTH_TOKEN_ISS=golang-template
+export AUTH_TOKEN_AUD=golang-template
+# Authorization: Bearer $AUTH_DEV_TOKEN  (skips JWT; needs AUTH_DEV_USER_ID)
+export AUTH_DEV_TOKEN=
+export AUTH_DEV_USER_ID=
+
+# --- seed (idempotent admin on boot) ---
+export SEED_ENABLED=false
+export SEED_ADMIN_EMAIL=admin@localhost
+export SEED_ADMIN_USERNAME=admin
+export SEED_ADMIN_PASSWORD=
+export SEED_ADMIN_ROLE=admin
+
+# --- redis ---
+export REDIS_ADDR=localhost:6379
+export REDIS_PW=
+export REDIS_DB=0
+export REDIS_ENABLED=true
+
+# --- rate limit ---
+export RATE_LIMIT_ENABLED=true
+export RATE_LIMIT_AUTH=10
+export RATE_LIMIT_WRITE=120
+export RATE_LIMIT_READ=600
+
+# --- files / blob ---
+# STORAGE_DRIVER: local | s3 | minio
+export FILES_ENABLED=true
+export STORAGE_DRIVER=local
+export STORAGE_LOCAL_DIR=./tmp/uploads
+export STORAGE_PUBLIC_URL=http://localhost:8080/api/v1/files
+export FILE_MAX_BYTES=10485760
+export FILE_ALLOWED_TYPES=image/jpeg,image/png,image/webp,application/pdf
+export S3_ENDPOINT=localhost:9000
+export S3_REGION=us-east-1
+export S3_BUCKET=uploads
+export S3_ACCESS_KEY=minioadmin
+export S3_SECRET_KEY=minioadmin
+export S3_USE_SSL=false
+export S3_PATH_STYLE=true
+
+# --- mail ---
+# MAIL_DRIVER: log | smtp | ses
+export MAIL_ENABLED=true
+export MAIL_DRIVER=log
+export MAIL_FROM=noreply@localhost
+export MAIL_FROM_NAME=golang-template
+export SMTP_HOST=localhost
+export SMTP_PORT=1025
+export SMTP_USER=
+export SMTP_PASS=
+export SMTP_TLS=false
+export SMTP_STARTTLS=false
+export SES_REGION=us-east-1
+export SES_ACCESS_KEY=
+export SES_SECRET_KEY=
+
+# --- metrics ---
+export METRICS_ENABLED=false
+# Required outside development. Header X-Metrics-Token or Authorization: Bearer
+export METRICS_TOKEN=
