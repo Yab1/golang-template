@@ -2,6 +2,12 @@ include .envrc
 
 MIGRATIONS_PATH = ./cmd/migrate/migrations
 
+# Pinned CLI tools (install with: make install-tools)
+SWAG_VERSION           ?= v1.16.6
+AIR_VERSION            ?= v1.63.0
+MIGRATE_VERSION        ?= v4.19.1
+GOLANGCI_LINT_VERSION  ?= v2.13.2
+
 .PHONY: run
 run:
 	@air
@@ -10,20 +16,42 @@ run:
 test:
 	@go test ./...
 
+.PHONY: lint
+lint:
+	@golangci-lint run ./...
+
+.PHONY: install-tools
+install-tools:
+	@echo "installing swag@$(SWAG_VERSION)"
+	@go install github.com/swaggo/swag/cmd/swag@$(SWAG_VERSION)
+	@echo "installing air@$(AIR_VERSION)"
+	@go install github.com/air-verse/air@$(AIR_VERSION)
+	@echo "installing migrate@$(MIGRATE_VERSION) (postgres)"
+	@go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@$(MIGRATE_VERSION)
+	@echo "installing golangci-lint@$(GOLANGCI_LINT_VERSION)"
+	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+	@echo "tools ready: swag air migrate golangci-lint"
+
+.PHONY: tools-versions
+tools-versions:
+	@echo "swag=$(SWAG_VERSION)"
+	@echo "air=$(AIR_VERSION)"
+	@echo "migrate=$(MIGRATE_VERSION)"
+	@echo "golangci-lint=$(GOLANGCI_LINT_VERSION)"
+
 .PHONY: gen-docs
 gen-docs:
 	@swag init -g ./main.go -d cmd/api,internal -o docs --parseDependency --parseInternal && swag fmt
 
+.PHONY: rename
+rename:
+	@test -n "$(MODULE)" || (echo "usage: make rename MODULE=github.com/acme/myapp" && exit 1)
+	@./scripts/rename-module.sh "$(MODULE)"
+
 .PHONY: new-module
 new-module:
 	@test -n "$(name)" || (echo "usage: make new-module name=patient" && exit 1)
-	@mkdir -p internal/modules/$(name)
-	@printf '%s\n' 'package $(name)' '' 'type $(name) struct {}' > internal/modules/$(name)/model.go
-	@printf '%s\n' 'package $(name)' '' 'type Store struct {}' > internal/modules/$(name)/store.go
-	@printf '%s\n' 'package $(name)' '' 'type Service struct {}' > internal/modules/$(name)/service.go
-	@printf '%s\n' 'package $(name)' '' '// HTTP handlers live here.' > internal/modules/$(name)/handler.go
-	@printf '%s\n' 'package $(name)' '' 'import "github.com/go-chi/chi/v5"' '' 'type Module struct {}' '' 'func (m *Module) Routes(r chi.Router) {}' > internal/modules/$(name)/routes.go
-	@echo "created internal/modules/$(name)"
+	@./scripts/new-module.sh "$(name)"
 
 .PHONY: migrate-create
 migrate-create:
