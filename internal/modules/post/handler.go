@@ -6,8 +6,10 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 
+	"github.com/Yab1/golang-template/internal/platform/audit"
 	"github.com/Yab1/golang-template/internal/platform/authz"
 	"github.com/Yab1/golang-template/internal/platform/httpx"
 	"github.com/Yab1/golang-template/internal/platform/storage"
@@ -78,6 +80,10 @@ func (m *Module) createPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	m.recordAudit(r, audit.ActionCreate, p.ID.String(), map[string]any{
+		"reference_id": p.ReferenceID,
+	})
+
 	if err := httpx.JSONResponse(w, http.StatusCreated, p); err != nil {
 		m.respond.InternalServerError(w, r, err)
 	}
@@ -90,10 +96,11 @@ func (m *Module) createPostHandler(w http.ResponseWriter, r *http.Request) {
 //	@Tags			posts
 //	@Accept			json
 //	@Produce		json
-//	@Param			limit	query		int		false	"Page size (1-100)"	default(20)
-//	@Param			offset	query		int		false	"Offset"			default(0)
-//	@Param			sort_by	query		string	false	"Sort field"		Enums(created_at, updated_at, title)	default(created_at)
-//	@Param			order	query		string	false	"Sort order"		Enums(asc, desc)						default(desc)
+//	@Param			limit	query		int		false	"Page size (1-100)"						default(20)
+//	@Param			offset	query		int		false	"Offset (ignored when cursor is set)"	default(0)
+//	@Param			cursor	query		string	false	"Opaque keyset cursor (created_at+id). Requires sort_by=created_at"
+//	@Param			sort_by	query		string	false	"Sort field"	Enums(created_at, updated_at, title)	default(created_at)
+//	@Param			order	query		string	false	"Sort order"	Enums(asc, desc)						default(desc)
 //	@Param			search	query		string	false	"Search title/content"
 //	@Param			tags	query		string	false	"Comma-separated tags (AND / contains all)"
 //	@Param			user_id	query		string	false	"Filter by author UUID"
@@ -120,11 +127,14 @@ func (m *Module) listPostsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := httpx.JSONList(w, http.StatusOK, result.Items, httpx.Pagination{
-		Total:  result.Total,
-		Limit:  fq.Limit,
-		Offset: fq.Offset,
-	}); err != nil {
+	var page httpx.Pagination
+	if fq.UsingCursor() {
+		page = httpx.CursorPagination(fq.Limit, result.NextCursor)
+	} else {
+		page = httpx.OffsetPagination(result.Total, fq.Limit, fq.Offset)
+	}
+
+	if err := httpx.JSONList(w, http.StatusOK, result.Items, page); err != nil {
 		m.respond.InternalServerError(w, r, err)
 	}
 }
@@ -204,6 +214,11 @@ func (m *Module) updatePostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	m.recordAudit(r, audit.ActionUpdate, p.ID.String(), map[string]any{
+		"reference_id": p.ReferenceID,
+		"version":      p.Version,
+	})
+
 	if err := httpx.JSONResponse(w, http.StatusOK, p); err != nil {
 		m.respond.InternalServerError(w, r, err)
 	}
@@ -212,7 +227,7 @@ func (m *Module) updatePostHandler(w http.ResponseWriter, r *http.Request) {
 // deletePostHandler godoc
 //
 //	@Summary		Delete a post
-//	@Description	Owner or admin+ can delete
+//	@Description	Soft-delete (sets deleted_at). Owner or admin+.
 //	@Tags			posts
 //	@Accept			json
 //	@Produce		json
@@ -227,7 +242,7 @@ func (m *Module) updatePostHandler(w http.ResponseWriter, r *http.Request) {
 func (m *Module) deletePostHandler(w http.ResponseWriter, r *http.Request) {
 	p := postFromCtx(r)
 
-	if err := m.posts.Delete(r.Context(), p.ID); err != nil {
+	if err := m.posts.SoftDelete(r.Context(), p.ID); err != nil {
 		switch {
 		case errors.Is(err, storage.ErrNotFound):
 			m.respond.NotFound(w, r, err)
@@ -236,6 +251,10 @@ func (m *Module) deletePostHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	m.recordAudit(r, audit.ActionDelete, p.ID.String(), map[string]any{
+		"reference_id": p.ReferenceID,
+	})
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -279,4 +298,27 @@ func postOwnerID(r *http.Request) uuid.UUID {
 		return uuid.Nil
 	}
 	return p.UserID
+}
+
+func (m *Module) recordAudit(r *http.Request, action, resourceID string, meta map[string]any) {
+	if m.audit == nil {
+		return
+	}
+	var actor *uuid.UUID
+	if p := authz.PrincipalFrom(r); p != nil {
+		id := p.ID
+		actor = &id
+	}
+	err := m.audit.Log(r.Context(), audit.Entry{
+		ActorID:      actor,
+		Action:       action,
+		ResourceType: "post",
+		ResourceID:   resourceID,
+		RequestID:    middleware.GetReqID(r.Context()),
+		IP:           r.RemoteAddr,
+		Meta:         meta,
+	})
+	if err != nil && m.log != nil {
+		m.log.Warnw("audit log failed", "action", action, "resource_id", resourceID, "error", err)
+	}
 }

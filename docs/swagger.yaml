@@ -44,6 +44,9 @@ definitions:
       limit:
         example: 20
         type: integer
+      next_cursor:
+        example: eyJ0IjoiMjAyNi0wOS0xOFQxMjowMDowMFoiLCJpIjoiLi4uIn0
+        type: string
       offset:
         example: 0
         type: integer
@@ -650,10 +653,14 @@ paths:
         name: limit
         type: integer
       - default: 0
-        description: Offset
+        description: Offset (ignored when cursor is set)
         in: query
         name: offset
         type: integer
+      - description: Opaque keyset cursor (created_at+id). Requires sort_by=created_at
+        in: query
+        name: cursor
+        type: string
       - default: created_at
         description: Sort field
         enum:
@@ -752,7 +759,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Owner or admin+ can delete
+      description: Soft-delete (sets deleted_at). Owner or admin+.
       parameters:
       - description: Post UUID or reference_id (e.g. GTL-PST-A7K2M)
         in: path

@@ -52,10 +52,25 @@ type Meta struct {
 }
 
 // Pagination is list-only metadata nested under meta.
+// Offset mode: total + limit + offset.
+// Cursor mode: limit + next_cursor (total/offset omitted).
 type Pagination struct {
-	Total  int64 `json:"total" example:"42"`
-	Limit  int   `json:"limit" example:"20"`
-	Offset int   `json:"offset" example:"0"`
+	Total      *int64 `json:"total,omitempty" example:"42"`
+	Limit      int    `json:"limit" example:"20"`
+	Offset     *int   `json:"offset,omitempty" example:"0"`
+	NextCursor string `json:"next_cursor,omitempty" example:"eyJ0IjoiMjAyNi0wOS0xOFQxMjowMDowMFoiLCJpIjoiLi4uIn0"`
+}
+
+// OffsetPagination builds offset-style list meta.
+func OffsetPagination(total int64, limit, offset int) Pagination {
+	t := total
+	o := offset
+	return Pagination{Total: &t, Limit: limit, Offset: &o}
+}
+
+// CursorPagination builds cursor-style list meta.
+func CursorPagination(limit int, nextCursor string) Pagination {
+	return Pagination{Limit: limit, NextCursor: nextCursor}
 }
 
 // ObjectResponse is the success envelope for a single resource.

@@ -58,6 +58,7 @@ func (app *application) handleHealthCheck(w http.ResponseWriter, r *http.Request
 			"mail":           app.config.Mail.Enabled,
 			"mail_driver":    app.config.Mail.Driver,
 			"metrics":        app.config.MetricsExposed(),
+			"audit":          app.config.Audit.Enabled,
 			"seed":           app.config.Seed.Enabled,
 			"log_level":      app.config.Log.Level,
 			"log_format":     app.config.Log.Format,

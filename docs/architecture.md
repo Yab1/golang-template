@@ -7,7 +7,7 @@ cmd/api                 HTTP process: bootstrap, mount, health
 cmd/migrate             schema files only
 internal/platform       infrastructure, no domain knowledge
   config db redis ratelimiter httpx storage query authn authz blob
-  mailer logger metrics refid
+  mailer logger metrics refid audit
 internal/modules        one vertical slice per domain concept
   user/ post/ file/     (later: clinical/patient, fhir/observation)
 ```
@@ -51,6 +51,7 @@ Config loaders live under `internal/platform/config/` — one file per env secti
 | `SEED_ENABLED` | false | Create admin user on boot if missing |
 | `METRICS_ENABLED` | false | `/metrics` Prometheus. Non-dev requires `METRICS_TOKEN` |
 | `METRICS_TOKEN` | empty | `X-Metrics-Token` or `Authorization: Bearer` |
+| `AUDIT_ENABLED` | true | Append-only `audit_logs` on post create/update/delete |
 | `TRUSTED_PROXIES` | empty | CIDRs allowed to set `X-Forwarded-For` / `X-Real-IP` |
 | `LOG_LEVEL` | debug in development | `debug` \| `info` \| `warn` \| `error` |
 | `LOG_FORMAT` | console in development | `console` \| `json` |
@@ -161,7 +162,17 @@ Success envelope:
 - single: `{ status, result, meta: { version } }` — annotate `httpx.ObjectResponse{result=T}`
 - list: `{ status, results, meta: { version, pagination } }` — annotate `httpx.ListResponse{results=[]T}`
 
-`meta.version` defaults to `"1"`. List pagination nests under `meta.pagination` (`total` / `limit` / `offset`).
+`meta.version` defaults to `"1"`. List pagination nests under `meta.pagination`:
+
+- **Offset:** `total` / `limit` / `offset` — `?limit=20&offset=40`
+- **Cursor (keyset):** `limit` / `next_cursor` — `?limit=20&cursor=<opaque>` (requires `sort_by=created_at`). Pass `next_cursor` as `cursor` for the next page.
+
+### Soft delete + audit
+
+Need migration `000007_soft_delete_audit`.
+
+- Posts `DELETE` soft-deletes (`deleted_at`). List/get skip deleted rows.
+- When `AUDIT_ENABLED`, post create/update/delete append to `audit_logs` (actor, action, resource, request_id, ip, meta). Failure is logged; HTTP still succeeds.
 
 ## Adding a new EMR resource
 

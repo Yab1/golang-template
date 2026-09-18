@@ -59,5 +59,10 @@ func (q ListQuery) Parse(r *http.Request) (ListQuery, error) {
 		q.UserID = &id
 	}
 
+	// Cursor keyset is always (created_at, id). Reject conflicting sort_by.
+	if q.UsingCursor() && q.Sort.By != "created_at" {
+		return q, fmt.Errorf("cursor pagination requires sort_by=created_at")
+	}
+
 	return q, nil
 }

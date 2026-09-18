@@ -110,3 +110,6 @@ export SES_SECRET_KEY=
 export METRICS_ENABLED=false
 # Required outside development. Header X-Metrics-Token or Authorization: Bearer
 export METRICS_TOKEN=
+
+# --- audit ---
+export AUDIT_ENABLED=true

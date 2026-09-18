@@ -638,8 +638,14 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "default": 0,
-                        "description": "Offset",
+                        "description": "Offset (ignored when cursor is set)",
                         "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Opaque keyset cursor (created_at+id). Requires sort_by=created_at",
+                        "name": "cursor",
                         "in": "query"
                     },
                     {
@@ -855,7 +861,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Owner or admin+ can delete",
+                "description": "Soft-delete (sets deleted_at). Owner or admin+.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1130,6 +1136,10 @@ const docTemplate = `{
                 "limit": {
                     "type": "integer",
                     "example": 20
+                },
+                "next_cursor": {
+                    "type": "string",
+                    "example": "eyJ0IjoiMjAyNi0wOS0xOFQxMjowMDowMFoiLCJpIjoiLi4uIn0"
                 },
                 "offset": {
                     "type": "integer",

@@ -30,6 +30,7 @@ type Config struct {
 	Files     Files
 	Mail      Mail
 	Metrics   Metrics
+	Audit     Audit
 }
 
 func Load() Config {
@@ -53,6 +54,7 @@ func Load() Config {
 		Files:     loadFiles(),
 		Mail:      loadMail(appName),
 		Metrics:   loadMetrics(),
+		Audit:     loadAudit(),
 	}
 }
 

@@ -10,11 +10,14 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/Yab1/golang-template/internal/platform/query"
 	"github.com/Yab1/golang-template/internal/platform/refid"
 	"github.com/Yab1/golang-template/internal/platform/storage"
 )
 
 const RefCode = "PST"
+
+const activePosts = "deleted_at IS NULL"
 
 type Store struct {
 	db   *pgxpool.Pool
@@ -26,7 +29,7 @@ func NewStore(db *pgxpool.Pool, refs *refid.Generator) *Store {
 }
 
 func (s *Store) Create(ctx context.Context, p *Post) error {
-	query := `
+	q := `
 		INSERT INTO posts (user_id, title, content, tags, reference_id)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, version, created_at, updated_at
@@ -47,7 +50,7 @@ func (s *Store) Create(ctx context.Context, p *Post) error {
 		ctx, cancel := context.WithTimeout(ctx, storage.QueryTimeoutDuration)
 		err = s.db.QueryRow(
 			ctx,
-			query,
+			q,
 			p.UserID,
 			p.Title,
 			p.Content,
@@ -80,7 +83,7 @@ func (s *Store) GetByID(ctx context.Context, id uuid.UUID) (*Post, error) {
 	return s.getPost(ctx, `
 		SELECT id, reference_id, user_id, title, content, tags, version, created_at, updated_at
 		FROM posts
-		WHERE id = $1
+		WHERE id = $1 AND `+activePosts+`
 	`, id)
 }
 
@@ -88,16 +91,16 @@ func (s *Store) GetByReferenceID(ctx context.Context, ref string) (*Post, error)
 	return s.getPost(ctx, `
 		SELECT id, reference_id, user_id, title, content, tags, version, created_at, updated_at
 		FROM posts
-		WHERE reference_id = $1
+		WHERE reference_id = $1 AND `+activePosts+`
 	`, strings.ToUpper(ref))
 }
 
-func (s *Store) getPost(ctx context.Context, query string, arg any) (*Post, error) {
+func (s *Store) getPost(ctx context.Context, q string, arg any) (*Post, error) {
 	ctx, cancel := context.WithTimeout(ctx, storage.QueryTimeoutDuration)
 	defer cancel()
 
 	var p Post
-	err := s.db.QueryRow(ctx, query, arg).Scan(
+	err := s.db.QueryRow(ctx, q, arg).Scan(
 		&p.ID,
 		&p.ReferenceID,
 		&p.UserID,
@@ -123,14 +126,14 @@ func (s *Store) getPost(ctx context.Context, query string, arg any) (*Post, erro
 }
 
 func (s *Store) Update(ctx context.Context, p *Post) error {
-	query := `
+	q := `
 		UPDATE posts
 		SET title = $1,
 		    content = $2,
 		    tags = $3,
 		    version = version + 1,
 		    updated_at = NOW()
-		WHERE id = $4 AND version = $5
+		WHERE id = $4 AND version = $5 AND ` + activePosts + `
 		RETURNING version, updated_at
 	`
 
@@ -143,7 +146,7 @@ func (s *Store) Update(ctx context.Context, p *Post) error {
 
 	err := s.db.QueryRow(
 		ctx,
-		query,
+		q,
 		p.Title,
 		p.Content,
 		p.Tags,
@@ -163,21 +166,24 @@ func (s *Store) Update(ctx context.Context, p *Post) error {
 	return nil
 }
 
-func (s *Store) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `DELETE FROM posts WHERE id = $1`
+// SoftDelete sets deleted_at. Row stays for audit / recovery.
+func (s *Store) SoftDelete(ctx context.Context, id uuid.UUID) error {
+	q := `
+		UPDATE posts
+		SET deleted_at = NOW(), updated_at = NOW()
+		WHERE id = $1 AND ` + activePosts + `
+	`
 
 	ctx, cancel := context.WithTimeout(ctx, storage.QueryTimeoutDuration)
 	defer cancel()
 
-	tag, err := s.db.Exec(ctx, query, id)
+	tag, err := s.db.Exec(ctx, q, id)
 	if err != nil {
 		return err
 	}
-
 	if tag.RowsAffected() == 0 {
 		return storage.ErrNotFound
 	}
-
 	return nil
 }
 
@@ -185,7 +191,7 @@ func (s *Store) List(ctx context.Context, q ListQuery) (*ListResult, error) {
 	ctx, cancel := context.WithTimeout(ctx, storage.QueryTimeoutDuration)
 	defer cancel()
 
-	where := []string{"TRUE"}
+	where := []string{activePosts}
 	args := []any{}
 	argN := 1
 
@@ -207,26 +213,58 @@ func (s *Store) List(ctx context.Context, q ListQuery) (*ListResult, error) {
 		argN++
 	}
 
+	var cursorPos *query.Cursor
+	if q.UsingCursor() {
+		c, err := query.DecodeCursor(q.Cursor)
+		if err != nil {
+			return nil, err
+		}
+		cursorPos = &c
+		if q.Sort.Order == "asc" {
+			where = append(where, fmt.Sprintf("(created_at, id) > ($%d::timestamptz, $%d::uuid)", argN, argN+1))
+		} else {
+			where = append(where, fmt.Sprintf("(created_at, id) < ($%d::timestamptz, $%d::uuid)", argN, argN+1))
+		}
+		args = append(args, cursorPos.CreatedAt, cursorPos.ID)
+		argN += 2
+	}
+
 	whereSQL := strings.Join(where, " AND ")
 
-	countQuery := `SELECT COUNT(*) FROM posts WHERE ` + whereSQL
-	var total int64
-	if err := s.db.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
-		return nil, err
+	result := &ListResult{Items: make([]*Post, 0)}
+
+	if !q.UsingCursor() {
+		countQuery := `SELECT COUNT(*) FROM posts WHERE ` + whereSQL
+		if err := s.db.QueryRow(ctx, countQuery, args...).Scan(&result.Total); err != nil {
+			return nil, err
+		}
 	}
 
 	listArgs := append([]any{}, args...)
-	listArgs = append(listArgs, q.Limit, q.Offset)
-	limitPh := argN
-	offsetPh := argN + 1
-
-	listQuery := fmt.Sprintf(`
-		SELECT id, reference_id, user_id, title, content, tags, version, created_at, updated_at
-		FROM posts
-		WHERE %s
-		ORDER BY %s
-		LIMIT $%d OFFSET $%d
-	`, whereSQL, q.Sort.Clause(), limitPh, offsetPh)
+	var listQuery string
+	if q.UsingCursor() {
+		dir := "DESC"
+		if q.Sort.Order == "asc" {
+			dir = "ASC"
+		}
+		listArgs = append(listArgs, q.Limit)
+		listQuery = fmt.Sprintf(`
+			SELECT id, reference_id, user_id, title, content, tags, version, created_at, updated_at
+			FROM posts
+			WHERE %s
+			ORDER BY created_at %s, id %s
+			LIMIT $%d
+		`, whereSQL, dir, dir, argN)
+	} else {
+		listArgs = append(listArgs, q.Limit, q.Offset)
+		listQuery = fmt.Sprintf(`
+			SELECT id, reference_id, user_id, title, content, tags, version, created_at, updated_at
+			FROM posts
+			WHERE %s
+			ORDER BY %s
+			LIMIT $%d OFFSET $%d
+		`, whereSQL, q.Sort.Clause(), argN, argN+1)
+	}
 
 	rows, err := s.db.Query(ctx, listQuery, listArgs...)
 	if err != nil {
@@ -234,7 +272,6 @@ func (s *Store) List(ctx context.Context, q ListQuery) (*ListResult, error) {
 	}
 	defer rows.Close()
 
-	items := make([]*Post, 0)
 	for rows.Next() {
 		var p Post
 		if err := rows.Scan(
@@ -253,14 +290,16 @@ func (s *Store) List(ctx context.Context, q ListQuery) (*ListResult, error) {
 		if p.Tags == nil {
 			p.Tags = []string{}
 		}
-		items = append(items, &p)
+		result.Items = append(result.Items, &p)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
-	return &ListResult{
-		Items: items,
-		Total: total,
-	}, nil
+	if q.UsingCursor() && len(result.Items) == q.Limit {
+		last := result.Items[len(result.Items)-1]
+		result.NextCursor = query.EncodeCursor(last.CreatedAt, last.ID)
+	}
+
+	return result, nil
 }

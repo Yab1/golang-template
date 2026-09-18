@@ -19,6 +19,7 @@ type Post struct {
 }
 
 type ListResult struct {
-	Items []*Post `json:"items"`
-	Total int64   `json:"total"`
+	Items      []*Post `json:"items"`
+	Total      int64   `json:"total"`
+	NextCursor string  `json:"next_cursor,omitempty"`
 }

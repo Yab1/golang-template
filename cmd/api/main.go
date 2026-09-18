@@ -12,6 +12,7 @@ import (
 	"github.com/Yab1/golang-template/internal/modules/file"
 	"github.com/Yab1/golang-template/internal/modules/post"
 	"github.com/Yab1/golang-template/internal/modules/user"
+	"github.com/Yab1/golang-template/internal/platform/audit"
 	"github.com/Yab1/golang-template/internal/platform/authn"
 	"github.com/Yab1/golang-template/internal/platform/authz"
 	"github.com/Yab1/golang-template/internal/platform/blob"
@@ -85,8 +86,11 @@ func main() {
 	// --- seed ---
 	maybeSeed(cfg, users, log)
 
+	// --- audit ---
+	auditLog := setupAudit(cfg, pool, log)
+
 	// --- domain modules ---
-	posts := post.New(pool, respond, guard, refs, rl.ByUser(toRule(cfg.RateLimit.Write)))
+	posts := post.New(pool, respond, guard, refs, rl.ByUser(toRule(cfg.RateLimit.Write)), auditLog, log)
 	files := setupFiles(cfg, respond, guard, rl, log)
 
 	app := &application{
@@ -214,6 +218,15 @@ func maybeSeed(cfg config.Config, users *user.Module, log *zap.SugaredLogger) {
 		return
 	}
 	log.Infow("seed admin already exists", "id", u.ID, "reference_id", u.ReferenceID, "email", u.Email)
+}
+
+func setupAudit(cfg config.Config, pool *pgxpool.Pool, log *zap.SugaredLogger) audit.Logger {
+	if !cfg.Audit.Enabled {
+		log.Info("audit logging disabled")
+		return audit.NewNop()
+	}
+	log.Info("audit logging enabled")
+	return audit.NewStore(pool)
 }
 
 func setupFiles(
