@@ -6,7 +6,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 
+	"github.com/Yab1/golang-template/internal/platform/audit"
 	"github.com/Yab1/golang-template/internal/platform/authn"
 	"github.com/Yab1/golang-template/internal/platform/config"
 	"github.com/Yab1/golang-template/internal/platform/httpx"
@@ -28,6 +30,8 @@ type Module struct {
 	authn          authn.Authenticator
 	mail           mailer.Mailer
 	guard          authGuard
+	audit          audit.Logger
+	log            *zap.SugaredLogger
 	appName        string
 	publicBaseURL  string
 	verifyRequired bool
@@ -51,9 +55,14 @@ func New(
 	refs *refid.Generator,
 	blocklist *authn.Blocklist,
 	authLimit func(http.Handler) http.Handler,
+	auditLog audit.Logger,
+	log *zap.SugaredLogger,
 ) *Module {
 	if authLimit == nil {
 		authLimit = func(next http.Handler) http.Handler { return next }
+	}
+	if auditLog == nil {
+		auditLog = audit.NewNop()
 	}
 	token := authCfg.Token
 	if token.RefreshExp <= 0 {
@@ -80,6 +89,8 @@ func New(
 		respond:        respond,
 		authn:          authenticator,
 		mail:           mail,
+		audit:          auditLog,
+		log:            log,
 		appName:        appName,
 		publicBaseURL:  publicBaseURL,
 		verifyRequired: authCfg.EmailVerifyRequired,

@@ -16,5 +16,8 @@ type Post struct {
 	Version     int        `json:"version"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
+	CreatedBy   *uuid.UUID `json:"created_by,omitempty"`
+	UpdatedBy   *uuid.UUID `json:"updated_by,omitempty"`
 	DeletedAt   *time.Time `json:"-"`
+	DeletedBy   *uuid.UUID `json:"-"`
 }

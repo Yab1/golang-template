@@ -9,7 +9,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 
+	"github.com/Yab1/golang-template/internal/platform/audit"
 	"github.com/Yab1/golang-template/internal/platform/blob"
 	"github.com/Yab1/golang-template/internal/platform/config"
 	"github.com/Yab1/golang-template/internal/platform/httpx"
@@ -19,6 +21,8 @@ type Module struct {
 	store        blob.Store
 	respond      *httpx.Responder
 	guard        authGuard
+	audit        audit.Logger
+	log          *zap.SugaredLogger
 	writeLimit   func(http.Handler) http.Handler
 	maxBytes     int64
 	allowedTypes map[string]struct{}
@@ -36,9 +40,20 @@ type UploadResponse struct {
 	Driver      string `json:"driver"`
 }
 
-func New(store blob.Store, respond *httpx.Responder, guard authGuard, writeLimit func(http.Handler) http.Handler, cfg config.Files) *Module {
+func New(
+	store blob.Store,
+	respond *httpx.Responder,
+	guard authGuard,
+	writeLimit func(http.Handler) http.Handler,
+	cfg config.Files,
+	auditLog audit.Logger,
+	log *zap.SugaredLogger,
+) *Module {
 	if writeLimit == nil {
 		writeLimit = func(next http.Handler) http.Handler { return next }
+	}
+	if auditLog == nil {
+		auditLog = audit.NewNop()
 	}
 	allowed := make(map[string]struct{}, len(cfg.AllowedTypes))
 	for _, t := range cfg.AllowedTypes {
@@ -48,6 +63,8 @@ func New(store blob.Store, respond *httpx.Responder, guard authGuard, writeLimit
 		store:        store,
 		respond:      respond,
 		guard:        guard,
+		audit:        auditLog,
+		log:          log,
 		writeLimit:   writeLimit,
 		maxBytes:     cfg.MaxBytes,
 		allowedTypes: allowed,
@@ -125,6 +142,12 @@ func (m *Module) uploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	audit.Record(m.audit, m.log, r, audit.ActionCreate, "file", key, map[string]any{
+		"size":         header.Size,
+		"content_type": contentType,
+		"driver":       m.store.Driver(),
+	})
+
 	if err := httpx.JSONResponse(w, http.StatusCreated, UploadResponse{
 		Key:         key,
 		URL:         url,
@@ -187,5 +210,8 @@ func (m *Module) deleteHandler(w http.ResponseWriter, r *http.Request) {
 		m.respond.InternalServerError(w, r, err)
 		return
 	}
+
+	audit.Record(m.audit, m.log, r, audit.ActionDelete, "file", key, nil)
+
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -24,13 +24,20 @@ TYPE="$(echo "${NAME}" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')"
 cat >"$DIR/model.go" <<EOF
 package ${NAME}
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type ${TYPE} struct {
 	ID        string     \`json:"id"\`
 	CreatedAt time.Time  \`json:"created_at"\`
 	UpdatedAt time.Time  \`json:"updated_at"\`
+	CreatedBy *uuid.UUID \`json:"created_by,omitempty"\`
+	UpdatedBy *uuid.UUID \`json:"updated_by,omitempty"\`
 	DeletedAt *time.Time \`json:"-"\`
+	DeletedBy *uuid.UUID \`json:"-"\`
 }
 EOF
 
@@ -110,4 +117,4 @@ func (m *Module) Routes(r chi.Router) {
 EOF
 
 echo "created internal/modules/${NAME} {model,store,handler,query,module}.go"
-echo "next: register Routes in cmd/api/api.go, add migration, make gen-docs"
+echo "next: register Routes in cmd/api/api.go, add migration (incl. actor stamps), wire audit.Record on mutations, make gen-docs"

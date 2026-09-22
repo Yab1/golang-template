@@ -77,21 +77,21 @@ func main() {
 	// --- mail ---
 	mail := mustMail(cfg, log)
 
+	// --- audit ---
+	auditLog := setupAudit(cfg, pool, log)
+
 	// --- auth (jwt, blocklist, guard, user module) ---
 	refs := refid.New(cfg.RefPrefix)
 	log.Infow("reference id prefix", "prefix", refs.Prefix())
-	users, guard := setupAuth(cfg, pool, respond, mail, refs, rdb, rl)
+	users, guard := setupAuth(cfg, pool, respond, mail, refs, rdb, rl, auditLog, log)
 	warnProdAuth(cfg, log)
 
 	// --- seed ---
 	maybeSeed(cfg, users, log)
 
-	// --- audit ---
-	auditLog := setupAudit(cfg, pool, log)
-
 	// --- domain modules ---
 	posts := post.New(pool, respond, guard, refs, rl.ByUser(toRule(cfg.RateLimit.Write)), auditLog, log)
-	files := setupFiles(cfg, respond, guard, rl, log)
+	files := setupFiles(cfg, respond, guard, rl, auditLog, log)
 
 	app := &application{
 		config:  cfg,
@@ -158,6 +158,8 @@ func setupAuth(
 	refs *refid.Generator,
 	rdb *redis.Client,
 	rl *ratelimiter.Middleware,
+	auditLog audit.Logger,
+	log *zap.SugaredLogger,
 ) (*user.Module, *authz.Guard) {
 	jwtAuth := authn.NewJWTAuthenticator(
 		cfg.Auth.Token.Secret,
@@ -176,6 +178,8 @@ func setupAuth(
 		refs,
 		blocklist,
 		rl.ByIPAuth(toRule(cfg.RateLimit.Auth)),
+		auditLog,
+		log,
 	)
 	guard := authz.NewGuard(jwtAuth, users, users, respond)
 	guard.Required = cfg.Auth.Required
@@ -234,6 +238,7 @@ func setupFiles(
 	respond *httpx.Responder,
 	guard *authz.Guard,
 	rl *ratelimiter.Middleware,
+	auditLog audit.Logger,
 	log *zap.SugaredLogger,
 ) *file.Module {
 	if !cfg.Files.Enabled {
@@ -244,5 +249,5 @@ func setupFiles(
 		log.Fatal(err)
 	}
 	log.Infow("blob store ready", "driver", store.Driver())
-	return file.New(store, respond, guard, rl.ByUser(toRule(cfg.RateLimit.Write)), cfg.Files)
+	return file.New(store, respond, guard, rl.ByUser(toRule(cfg.RateLimit.Write)), cfg.Files, auditLog, log)
 }

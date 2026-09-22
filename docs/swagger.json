@@ -1202,6 +1202,9 @@
                 "created_at": {
                     "type": "string"
                 },
+                "created_by": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -1218,6 +1221,9 @@
                     "type": "string"
                 },
                 "updated_at": {
+                    "type": "string"
+                },
+                "updated_by": {
                     "type": "string"
                 },
                 "user_id": {
@@ -1408,6 +1414,9 @@
                 "created_at": {
                     "type": "string"
                 },
+                "created_by": {
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },
@@ -1427,6 +1436,9 @@
                     "type": "integer"
                 },
                 "updated_at": {
+                    "type": "string"
+                },
+                "updated_by": {
                     "type": "string"
                 },
                 "username": {

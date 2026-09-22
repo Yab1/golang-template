@@ -19,7 +19,7 @@ const RefCode = "PST"
 
 const activePosts = "deleted_at IS NULL"
 
-const postColumns = `id, reference_id, user_id, title, content, tags, version, created_at, updated_at, deleted_at`
+const postColumns = `id, reference_id, user_id, title, content, tags, version, created_at, updated_at, created_by, updated_by, deleted_at, deleted_by`
 
 type Store struct {
 	db   *pgxpool.Pool
@@ -41,7 +41,10 @@ func scanPost(sc interface{ Scan(dest ...any) error }, p *Post) error {
 		&p.Version,
 		&p.CreatedAt,
 		&p.UpdatedAt,
+		&p.CreatedBy,
+		&p.UpdatedBy,
 		&p.DeletedAt,
+		&p.DeletedBy,
 	)
 	if err != nil {
 		return err
@@ -54,8 +57,8 @@ func scanPost(sc interface{ Scan(dest ...any) error }, p *Post) error {
 
 func (s *Store) Create(ctx context.Context, p *Post) error {
 	q := `
-		INSERT INTO posts (user_id, title, content, tags, reference_id)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO posts (user_id, title, content, tags, reference_id, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING ` + postColumns
 
 	if p.Tags == nil {
@@ -79,6 +82,8 @@ func (s *Store) Create(ctx context.Context, p *Post) error {
 			p.Content,
 			p.Tags,
 			p.ReferenceID,
+			p.CreatedBy,
+			p.UpdatedBy,
 		), p)
 		cancel()
 		if err == nil {
@@ -135,9 +140,10 @@ func (s *Store) Update(ctx context.Context, p *Post) error {
 		    content = $2,
 		    tags = $3,
 		    version = version + 1,
-		    updated_at = NOW()
+		    updated_at = NOW(),
+		    updated_by = $6
 		WHERE id = $4 AND version = $5 AND ` + activePosts + `
-		RETURNING version, updated_at, deleted_at
+		RETURNING version, updated_at, updated_by, deleted_at, deleted_by
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, storage.QueryTimeoutDuration)
@@ -155,10 +161,13 @@ func (s *Store) Update(ctx context.Context, p *Post) error {
 		p.Tags,
 		p.ID,
 		p.Version,
+		p.UpdatedBy,
 	).Scan(
 		&p.Version,
 		&p.UpdatedAt,
+		&p.UpdatedBy,
 		&p.DeletedAt,
+		&p.DeletedBy,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -173,15 +182,23 @@ func (s *Store) Update(ctx context.Context, p *Post) error {
 func (s *Store) SoftDelete(ctx context.Context, p *Post) error {
 	q := `
 		UPDATE posts
-		SET deleted_at = NOW(), updated_at = NOW()
+		SET deleted_at = NOW(),
+		    updated_at = NOW(),
+		    deleted_by = $2,
+		    updated_by = $2
 		WHERE id = $1 AND ` + activePosts + `
-		RETURNING updated_at, deleted_at
+		RETURNING updated_at, updated_by, deleted_at, deleted_by
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, storage.QueryTimeoutDuration)
 	defer cancel()
 
-	err := s.db.QueryRow(ctx, q, p.ID).Scan(&p.UpdatedAt, &p.DeletedAt)
+	err := s.db.QueryRow(ctx, q, p.ID, p.DeletedBy).Scan(
+		&p.UpdatedAt,
+		&p.UpdatedBy,
+		&p.DeletedAt,
+		&p.DeletedBy,
+	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return storage.ErrNotFound

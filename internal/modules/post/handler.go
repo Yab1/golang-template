@@ -6,12 +6,12 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 
 	"github.com/Yab1/golang-template/internal/platform/audit"
 	"github.com/Yab1/golang-template/internal/platform/authz"
 	"github.com/Yab1/golang-template/internal/platform/httpx"
+	"github.com/Yab1/golang-template/internal/platform/stamp"
 	"github.com/Yab1/golang-template/internal/platform/storage"
 )
 
@@ -65,11 +65,14 @@ func (m *Module) createPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	actor := stamp.Ptr(principal.ID)
 	p := &Post{
-		UserID:  principal.ID,
-		Title:   payload.Title,
-		Content: payload.Content,
-		Tags:    payload.Tags,
+		UserID:    principal.ID,
+		Title:     payload.Title,
+		Content:   payload.Content,
+		Tags:      payload.Tags,
+		CreatedBy: actor,
+		UpdatedBy: actor,
 	}
 	if p.Tags == nil {
 		p.Tags = []string{}
@@ -80,7 +83,7 @@ func (m *Module) createPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m.recordAudit(r, audit.ActionCreate, p.ID.String(), map[string]any{
+	audit.Record(m.audit, m.log, r, audit.ActionCreate, "post", p.ID.String(), map[string]any{
 		"reference_id": p.ReferenceID,
 	})
 
@@ -202,6 +205,13 @@ func (m *Module) updatePostHandler(w http.ResponseWriter, r *http.Request) {
 		p.Tags = payload.Tags
 	}
 
+	principal := authz.PrincipalFrom(r)
+	if principal == nil {
+		m.respond.Unauthorized(w, r, errUnauthorized)
+		return
+	}
+	p.UpdatedBy = stamp.Ptr(principal.ID)
+
 	if err := m.posts.Update(r.Context(), p); err != nil {
 		switch {
 		case errors.Is(err, storage.ErrNotFound):
@@ -214,7 +224,7 @@ func (m *Module) updatePostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m.recordAudit(r, audit.ActionUpdate, p.ID.String(), map[string]any{
+	audit.Record(m.audit, m.log, r, audit.ActionUpdate, "post", p.ID.String(), map[string]any{
 		"reference_id": p.ReferenceID,
 		"version":      p.Version,
 	})
@@ -242,6 +252,13 @@ func (m *Module) updatePostHandler(w http.ResponseWriter, r *http.Request) {
 func (m *Module) deletePostHandler(w http.ResponseWriter, r *http.Request) {
 	p := postFromCtx(r)
 
+	principal := authz.PrincipalFrom(r)
+	if principal == nil {
+		m.respond.Unauthorized(w, r, errUnauthorized)
+		return
+	}
+	p.DeletedBy = stamp.Ptr(principal.ID)
+
 	if err := m.posts.SoftDelete(r.Context(), p); err != nil {
 		switch {
 		case errors.Is(err, storage.ErrNotFound):
@@ -252,7 +269,7 @@ func (m *Module) deletePostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m.recordAudit(r, audit.ActionDelete, p.ID.String(), map[string]any{
+	audit.Record(m.audit, m.log, r, audit.ActionDelete, "post", p.ID.String(), map[string]any{
 		"reference_id": p.ReferenceID,
 	})
 
@@ -298,27 +315,4 @@ func postOwnerID(r *http.Request) uuid.UUID {
 		return uuid.Nil
 	}
 	return p.UserID
-}
-
-func (m *Module) recordAudit(r *http.Request, action, resourceID string, meta map[string]any) {
-	if m.audit == nil {
-		return
-	}
-	var actor *uuid.UUID
-	if p := authz.PrincipalFrom(r); p != nil {
-		id := p.ID
-		actor = &id
-	}
-	err := m.audit.Log(r.Context(), audit.Entry{
-		ActorID:      actor,
-		Action:       action,
-		ResourceType: "post",
-		ResourceID:   resourceID,
-		RequestID:    middleware.GetReqID(r.Context()),
-		IP:           r.RemoteAddr,
-		Meta:         meta,
-	})
-	if err != nil && m.log != nil {
-		m.log.Warnw("audit log failed", "action", action, "resource_id", resourceID, "error", err)
-	}
 }

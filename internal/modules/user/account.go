@@ -9,9 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Yab1/golang-template/internal/platform/audit"
 	"github.com/Yab1/golang-template/internal/platform/authz"
 	"github.com/Yab1/golang-template/internal/platform/httpx"
 	"github.com/Yab1/golang-template/internal/platform/mailer"
+	"github.com/Yab1/golang-template/internal/platform/stamp"
 	"github.com/Yab1/golang-template/internal/platform/storage"
 )
 
@@ -66,10 +68,14 @@ func (m *Module) verifyEmailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := m.users.Activate(r.Context(), tok.UserID); err != nil {
+	if err := m.users.Activate(r.Context(), tok.UserID, stamp.Ptr(tok.UserID)); err != nil {
 		m.respond.InternalServerError(w, r, err)
 		return
 	}
+
+	audit.Record(m.audit, m.log, r, audit.ActionUpdate, "user", tok.UserID.String(), map[string]any{
+		"reason": "verify_email",
+	})
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -180,14 +186,18 @@ func (m *Module) resetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 		m.respond.InternalServerError(w, r, err)
 		return
 	}
-	if err := m.users.UpdatePassword(r.Context(), tok.UserID, pw.hash); err != nil {
+	actor := stamp.Ptr(tok.UserID)
+	if err := m.users.UpdatePassword(r.Context(), tok.UserID, pw.hash, actor); err != nil {
 		m.respond.InternalServerError(w, r, err)
 		return
 	}
 	_ = m.refresh.RevokeAllForUser(r.Context(), tok.UserID)
 	_, _ = m.users.IncrementTokenVersion(r.Context(), tok.UserID)
-	// Activate on reset so forgot-password works for unverified accounts that proved email ownership.
-	_ = m.users.Activate(r.Context(), tok.UserID)
+	_ = m.users.Activate(r.Context(), tok.UserID, actor)
+
+	audit.Record(m.audit, m.log, r, audit.ActionUpdate, "user", tok.UserID.String(), map[string]any{
+		"reason": "reset_password",
+	})
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -242,7 +252,8 @@ func (m *Module) changePasswordHandler(w http.ResponseWriter, r *http.Request) {
 		m.respond.InternalServerError(w, r, err)
 		return
 	}
-	if err := m.users.UpdatePassword(r.Context(), u.ID, pw.hash); err != nil {
+	actor := stamp.Ptr(u.ID)
+	if err := m.users.UpdatePassword(r.Context(), u.ID, pw.hash, actor); err != nil {
 		m.respond.InternalServerError(w, r, err)
 		return
 	}
@@ -251,6 +262,10 @@ func (m *Module) changePasswordHandler(w http.ResponseWriter, r *http.Request) {
 	if principal.AccessJTI != "" {
 		_ = m.blocklist.Ban(r.Context(), principal.AccessJTI, time.Unix(principal.AccessExp, 0))
 	}
+
+	audit.Record(m.audit, m.log, r, audit.ActionUpdate, "user", u.ID.String(), map[string]any{
+		"reason": "change_password",
+	})
 
 	w.WriteHeader(http.StatusNoContent)
 }

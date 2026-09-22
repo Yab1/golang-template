@@ -14,6 +14,13 @@ import (
 
 const RefCode = "USR"
 
+const userColumns = `
+	u.id, u.reference_id, u.email, u.username, u.password, COALESCE(u.is_active, false),
+	u.role_id, u.created_at, u.updated_at, u.created_by, u.updated_by,
+	COALESCE(u.token_version, 1),
+	r.id, r.name, r.level, COALESCE(r.description, '')
+`
+
 type Store struct {
 	db   *pgxpool.Pool
 	refs *refid.Generator
@@ -25,16 +32,18 @@ func NewStore(db *pgxpool.Pool, refs *refid.Generator) *Store {
 
 func (s *Store) Create(ctx context.Context, u *User) error {
 	query := `
-		INSERT INTO users (email, username, password, role_id, reference_id, is_active)
+		INSERT INTO users (email, username, password, role_id, reference_id, is_active, created_by, updated_by)
 		VALUES (
 			$1,
 			$2,
 			$3,
 			(SELECT id FROM roles WHERE name = $4),
 			$5,
-			$6
+			$6,
+			$7,
+			$8
 		)
-		RETURNING id, role_id, created_at, updated_at
+		RETURNING id, role_id, created_at, updated_at, created_by, updated_by
 	`
 
 	roleName := u.Role.Name
@@ -60,14 +69,23 @@ func (s *Store) Create(ctx context.Context, u *User) error {
 			roleName,
 			u.ReferenceID,
 			u.IsActive,
+			u.CreatedBy,
+			u.UpdatedBy,
 		).Scan(
 			&u.ID,
 			&u.RoleID,
 			&u.CreatedAt,
 			&u.UpdatedAt,
+			&u.CreatedBy,
+			&u.UpdatedBy,
 		)
 		cancel()
 		if err == nil {
+			if u.CreatedBy == nil || u.UpdatedBy == nil {
+				if err := s.stampSelf(ctx, u.ID); err != nil {
+					return err
+				}
+			}
 			created, err := s.GetByID(ctx, u.ID)
 			if err != nil {
 				return err
@@ -88,13 +106,24 @@ func (s *Store) Create(ctx context.Context, u *User) error {
 	return storage.MapError(lastErr)
 }
 
+// stampSelf sets created_by/updated_by to the user id after self-registration.
+func (s *Store) stampSelf(ctx context.Context, id uuid.UUID) error {
+	query := `
+		UPDATE users
+		SET created_by = COALESCE(created_by, id),
+		    updated_by = COALESCE(updated_by, id)
+		WHERE id = $1
+	`
+	ctx, cancel := context.WithTimeout(ctx, storage.QueryTimeoutDuration)
+	defer cancel()
+
+	_, err := s.db.Exec(ctx, query, id)
+	return err
+}
+
 func (s *Store) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	return s.getUser(ctx, `
-		SELECT
-			u.id, u.reference_id, u.email, u.username, u.password, COALESCE(u.is_active, false),
-			u.role_id, u.created_at, u.updated_at,
-			COALESCE(u.token_version, 1),
-			r.id, r.name, r.level, COALESCE(r.description, '')
+		SELECT `+userColumns+`
 		FROM users u
 		JOIN roles r ON r.id = u.role_id
 		WHERE u.id = $1
@@ -103,11 +132,7 @@ func (s *Store) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 
 func (s *Store) GetByEmail(ctx context.Context, email string) (*User, error) {
 	return s.getUser(ctx, `
-		SELECT
-			u.id, u.reference_id, u.email, u.username, u.password, COALESCE(u.is_active, false),
-			u.role_id, u.created_at, u.updated_at,
-			COALESCE(u.token_version, 1),
-			r.id, r.name, r.level, COALESCE(r.description, '')
+		SELECT `+userColumns+`
 		FROM users u
 		JOIN roles r ON r.id = u.role_id
 		WHERE u.email = $1
@@ -129,6 +154,8 @@ func (s *Store) getUser(ctx context.Context, query string, arg any) (*User, erro
 		&u.RoleID,
 		&u.CreatedAt,
 		&u.UpdatedAt,
+		&u.CreatedBy,
+		&u.UpdatedBy,
 		&u.TokenVersion,
 		&u.Role.ID,
 		&u.Role.Name,
@@ -145,36 +172,29 @@ func (s *Store) getUser(ctx context.Context, query string, arg any) (*User, erro
 	return &u, nil
 }
 
-func (s *Store) Activate(ctx context.Context, id uuid.UUID) error {
+func (s *Store) Activate(ctx context.Context, id uuid.UUID, updatedBy *uuid.UUID) error {
 	query := `
 		UPDATE users
-		SET is_active = true, updated_at = NOW()
+		SET is_active = true, updated_at = NOW(), updated_by = COALESCE($2, updated_by)
 		WHERE id = $1 AND is_active = false
 	`
 	ctx, cancel := context.WithTimeout(ctx, storage.QueryTimeoutDuration)
 	defer cancel()
 
-	tag, err := s.db.Exec(ctx, query, id)
-	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() == 0 {
-		// Already active or missing — treat missing separately via GetByID callers.
-		return nil
-	}
-	return nil
+	_, err := s.db.Exec(ctx, query, id, updatedBy)
+	return err
 }
 
-func (s *Store) UpdatePassword(ctx context.Context, id uuid.UUID, hash []byte) error {
+func (s *Store) UpdatePassword(ctx context.Context, id uuid.UUID, hash []byte, updatedBy *uuid.UUID) error {
 	query := `
 		UPDATE users
-		SET password = $2, updated_at = NOW()
+		SET password = $2, updated_at = NOW(), updated_by = COALESCE($3, updated_by)
 		WHERE id = $1
 	`
 	ctx, cancel := context.WithTimeout(ctx, storage.QueryTimeoutDuration)
 	defer cancel()
 
-	tag, err := s.db.Exec(ctx, query, id, hash)
+	tag, err := s.db.Exec(ctx, query, id, hash, updatedBy)
 	if err != nil {
 		return err
 	}

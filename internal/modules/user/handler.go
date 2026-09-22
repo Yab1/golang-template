@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Yab1/golang-template/internal/platform/audit"
 	"github.com/Yab1/golang-template/internal/platform/httpx"
 	"github.com/Yab1/golang-template/internal/platform/mailer"
 	"github.com/Yab1/golang-template/internal/platform/storage"
@@ -66,6 +67,10 @@ func (m *Module) createUserHandler(w http.ResponseWriter, r *http.Request) {
 		m.respond.InternalServerError(w, r, err)
 		return
 	}
+
+	audit.Record(m.audit, m.log, r, audit.ActionCreate, "user", u.ID.String(), map[string]any{
+		"reference_id": u.ReferenceID,
+	})
 
 	if m.verifyRequired {
 		if err := m.issueEmailVerify(r.Context(), u); err != nil {

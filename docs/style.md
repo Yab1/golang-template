@@ -78,12 +78,14 @@ Enterprise rule: **one pattern every module** — model mirrors the table; hide 
 Companion:
 
 - Request bodies stay in **handler** (`CreateXPayload`) — never on the model.
-- Soft-delete resources: `DeletedAt *time.Time \`json:"-"\`` + filter `deleted_at IS NULL` in store.
+- Soft-delete resources: `DeletedAt *time.Time \`json:"-"\`` + `DeletedBy *uuid.UUID \`json:"-"\`` + filter `deleted_at IS NULL` in store.
+- Actor stamps: `CreatedBy` / `UpdatedBy` public (`omitempty`); set from `authz.Principal` via `stamp.Ptr` in handlers. Owner (`UserID`) stays separate.
+- Audit trail: call `audit.Record` after successful mutations (do not fail the request on audit error).
 - Code review: “new column? migration + model + store Scan?”
 
 Break the rule for join-heavy read models / FHIR wire shapes (`fhir_mapping.go`). Core CRUD entity stays full-row.
 
-Example: `post.Post` includes `DeletedAt` with `json:"-"`; active queries still filter it out.
+Example: `post.Post` includes `DeletedAt`/`DeletedBy` with `json:"-"`; active queries still filter soft-deleted rows.
 
 ### Boundaries
 

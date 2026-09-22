@@ -63,7 +63,7 @@ Config loaders live under `internal/platform/config/` — one file per env secti
 | `SEED_ENABLED` | false | Create admin user on boot if missing |
 | `METRICS_ENABLED` | false | `/metrics` Prometheus. Non-dev requires `METRICS_TOKEN` |
 | `METRICS_TOKEN` | empty | `X-Metrics-Token` or `Authorization: Bearer` |
-| `AUDIT_ENABLED` | true | Append-only `audit_logs` on post create/update/delete |
+| `AUDIT_ENABLED` | true | Append-only `audit_logs` on post/user/file mutations |
 | `TRUSTED_PROXIES` | empty | CIDRs allowed to set `X-Forwarded-For` / `X-Real-IP` |
 | `LOG_LEVEL` | debug in development | `debug` \| `info` \| `warn` \| `error` |
 | `LOG_FORMAT` | console in development | `console` \| `json` |
@@ -179,12 +179,14 @@ Success envelope:
 - **Offset:** `total` / `limit` / `offset` — `?limit=20&offset=40`
 - **Cursor (keyset):** `limit` / `next_cursor` — `?limit=20&cursor=<opaque>` (requires `sort_by=created_at`). Pass `next_cursor` as `cursor` for the next page.
 
-### Soft delete + audit
+### Soft delete + audit + actor stamps
 
-Need migration `000007_soft_delete_audit`.
+Need migrations `000007_soft_delete_audit` and `000008_actor_stamps`.
 
-- Posts `DELETE` soft-deletes (`deleted_at`). List/get skip deleted rows.
-- When `AUDIT_ENABLED`, post create/update/delete append to `audit_logs` (actor, action, resource, request_id, ip, meta). Failure is logged; HTTP still succeeds.
+- Posts `DELETE` soft-deletes (`deleted_at` + `deleted_by`). List/get skip deleted rows.
+- Row stamps: `created_by` / `updated_by` / `deleted_by` on posts; `created_by` / `updated_by` on users. Owner field (`user_id`) ≠ actor stamps.
+- When `AUDIT_ENABLED`, mutations append to `audit_logs` (actor, action, resource, request_id, ip, meta) via `audit.Record`. Failure is logged; HTTP still succeeds.
+- Covered today: post CUD, user register / verify / password change+reset, file upload/delete.
 
 ## Adding a new EMR resource
 
