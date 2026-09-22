@@ -200,7 +200,9 @@ Kafka is optional (`KAFKA_ENABLED`). HTTP stays synchronous. Domain writes and `
 
 Contracts: [ADR 0001](./adr/0001-kafka-event-driven-architecture.md), [topic catalog](./eventing/topic-catalog.md), [runbook](./eventing/runbook.md).
 
-Release order (`scripts/release.sh`): PRECHECK → BACKUP → DB_MIGRATE → BROKER_PROVISION → SCHEMA_REGISTER → DEPLOY_API → DEPLOY_WORKER → VERIFY → ENABLE → POST. `POST` (`cmd/post`) is last and owns seeding. API/worker never auto-migrate.
+Release order (`scripts/release.sh`): PRECHECK → BACKUP → DB_MIGRATE → BROKER_PROVISION → SCHEMA_REGISTER → DEPLOY_API → DEPLOY_WORKER → VERIFY → ENABLE → POST. `POST` (`cmd/post` / `deploy/scripts/post.sh`) is last and owns seeding. API/worker never auto-migrate.
+
+Blue-green app deploy: [`deploy/`](../deploy/). Proxy on `APP_PORT` → `api_blue` or `api_green`. Jenkins uses `deploy/Jenkinsfile` (deploy, then POST).
 
 Local infra (Postgres, Redis, Kafka, Kafka UI):
 
@@ -208,9 +210,8 @@ Local infra (Postgres, Redis, Kafka, Kafka UI):
 make infra-up          # or: cd infra && make up
 make kafka-topics
 make kafka-schemas     # needs a schema registry (not in infra yet)
-make migrate-up
-make worker
-make post
+make deploy            # migrate + blue-green API + worker
+make deploy-post       # seed last
 ```
 
 

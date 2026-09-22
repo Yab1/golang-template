@@ -1,0 +1,76 @@
+name: golang_template
+
+x-app: &app
+  build:
+    context: ${DOCKER_BUILD_CONTEXT:-..}
+    dockerfile: deploy/Dockerfile
+  image: ${IMAGE_NAME:-golang_template:latest}
+  restart: unless-stopped
+  env_file:
+    - .env
+  networks:
+    - infra
+
+services:
+  golang_template_api_blue:
+    <<: *app
+    container_name: golang_template_api_blue
+    command: ["/app/api"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  golang_template_api_green:
+    <<: *app
+    container_name: golang_template_api_green
+    command: ["/app/api"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  golang_template_worker:
+    <<: *app
+    container_name: golang_template_worker
+    command: ["/app/worker"]
+
+  golang_template_api_proxy:
+    image: nginx:1.27-alpine
+    container_name: golang_template_api_proxy
+    ports:
+      - "${APP_PORT:-8080}:80"
+    volumes:
+      - ./nginx/app-active.conf:/etc/nginx/conf.d/default.conf:ro
+    restart: unless-stopped
+    networks:
+      - infra
+
+  golang_template_migrate:
+    <<: *app
+    container_name: golang_template_migrate
+    restart: "no"
+    command:
+      - /app/migrate
+      - -path=/app/migrations
+      - -database
+      - ${DB_ADDR}
+    profiles:
+      - tools
+
+  golang_template_post:
+    <<: *app
+    container_name: golang_template_post
+    restart: "no"
+    command: ["/app/post"]
+    profiles:
+      - tools
+
+networks:
+  infra:
+    name: infra
+    external: true

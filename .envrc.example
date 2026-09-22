@@ -1,5 +1,6 @@
 # Copy to .envrc and adjust. Then: direnv allow
 # Shared deps: cd infra && make up (postgres, redis, kafka, kafka-ui).
+# App key catalog for local (this file) and deploy/.env (same names, no export; docker DNS).
 # Sections match internal/platform/config/*.go loaders.
 
 # --- app ---

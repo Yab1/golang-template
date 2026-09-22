@@ -1,0 +1,107 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Prepare Environment') {
+            steps {
+                script {
+                    def configScript = """
+                        bash -c 'source deploy/scripts/config.sh && \
+                        echo "PROJECT_NAME=\${PROJECT_NAME}" && \
+                        echo "JENKINS_ENV_FILE=\${JENKINS_ENV_FILE}" && \
+                        echo "JENKINS_SECRETS_FILE=\${JENKINS_SECRETS_FILE}"'
+                    """
+                    def configOutput = sh(script: configScript, returnStdout: true).trim()
+
+                    def config = [:]
+                    configOutput.split('\n').each { line ->
+                        def parts = line.split('=', 2)
+                        if (parts.length == 2) {
+                            config[parts[0]] = parts[1]
+                        }
+                    }
+
+                    def ENV_FILE = config['JENKINS_ENV_FILE']
+                    def SECRETS_FILE = config['JENKINS_SECRETS_FILE']
+
+                    echo "[INFO] Preparing environment files..."
+
+                    if (fileExists(ENV_FILE)) {
+                        sh "cp ${ENV_FILE} deploy/.env"
+                        echo "[SUCCESS] Environment file copied to deploy/.env"
+                    } else {
+                        error("[ERROR] Environment file not found: ${ENV_FILE}")
+                    }
+
+                    if (fileExists(SECRETS_FILE)) {
+                        sh "cp ${SECRETS_FILE} .secrets.yml"
+                        echo "[SUCCESS] Secrets file copied"
+                    } else {
+                        echo "[WARNING] Secrets file not found: ${SECRETS_FILE}"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                script {
+                    sh './deploy/scripts/deploy.sh'
+                }
+            }
+        }
+
+        stage('POST') {
+            steps {
+                script {
+                    sh './deploy/scripts/post.sh'
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                def message = """
+                    Deployment successful
+                    Job: ${env.JOB_NAME}
+                    Build: #${env.BUILD_NUMBER}
+                    Branch: ${env.GIT_BRANCH ?: 'N/A'}
+                    Commit: ${env.GIT_COMMIT ? env.GIT_COMMIT.take(7) : 'N/A'}
+                    Duration: ${currentBuild.durationString.replace(' and counting', '')}
+                """.stripIndent()
+
+                echo message
+            }
+        }
+
+        failure {
+            script {
+                def message = """
+                    Deployment failed
+                    Job: ${env.JOB_NAME}
+                    Build: #${env.BUILD_NUMBER}
+                    Branch: ${env.GIT_BRANCH ?: 'N/A'}
+                    Commit: ${env.GIT_COMMIT ? env.GIT_COMMIT.take(7) : 'N/A'}
+                    Duration: ${currentBuild.durationString.replace(' and counting', '')}
+                    Console: ${env.BUILD_URL}console
+                """.stripIndent()
+
+                echo message
+            }
+        }
+
+        always {
+            script {
+                echo "[INFO] Deployment pipeline completed"
+            }
+        }
+    }
+}

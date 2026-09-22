@@ -1,0 +1,4 @@
+.active-slot
+nginx/app-active.conf
+nginx/app-active.conf.new
+.env

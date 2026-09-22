@@ -51,6 +51,18 @@ kafka-replay:
 release:
 	@./scripts/release.sh
 
+.PHONY: deploy
+deploy:
+	@./deploy/scripts/deploy.sh
+
+.PHONY: deploy-post
+deploy-post:
+	@./deploy/scripts/post.sh
+
+.PHONY: deploy-status
+deploy-status:
+	@./deploy/scripts/orchestrate.sh status
+
 .PHONY: test
 test:
 	@go test ./...
