@@ -57,10 +57,11 @@ These are **not** in Uber — every module must follow them.
 ```
 internal/modules/<name>/
   model.go      # table/domain row
-  store.go      # SQL only
+  store.go      # SQL only (include *Tx variants when emitting outbox events)
   handler.go    # HTTP: payloads, validate, status, call store
   module.go     # New + Routes (+ middleware wiring)
   query.go      # optional: list URL filters → struct for store
+  events.go     # optional: transactional outbox helpers (nil-safe when Kafka off)
 ```
 
 Extras by concern (see `user/`): `auth.go`, `token_store.go`, … — **not** by layer (`models/`, `utils/`).
