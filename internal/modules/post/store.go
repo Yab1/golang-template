@@ -19,6 +19,8 @@ const RefCode = "PST"
 
 const activePosts = "deleted_at IS NULL"
 
+const postColumns = `id, reference_id, user_id, title, content, tags, version, created_at, updated_at, deleted_at`
+
 type Store struct {
 	db   *pgxpool.Pool
 	refs *refid.Generator
@@ -28,12 +30,33 @@ func NewStore(db *pgxpool.Pool, refs *refid.Generator) *Store {
 	return &Store{db: db, refs: refs}
 }
 
+func scanPost(sc interface{ Scan(dest ...any) error }, p *Post) error {
+	err := sc.Scan(
+		&p.ID,
+		&p.ReferenceID,
+		&p.UserID,
+		&p.Title,
+		&p.Content,
+		&p.Tags,
+		&p.Version,
+		&p.CreatedAt,
+		&p.UpdatedAt,
+		&p.DeletedAt,
+	)
+	if err != nil {
+		return err
+	}
+	if p.Tags == nil {
+		p.Tags = []string{}
+	}
+	return nil
+}
+
 func (s *Store) Create(ctx context.Context, p *Post) error {
 	q := `
 		INSERT INTO posts (user_id, title, content, tags, reference_id)
 		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, version, created_at, updated_at
-	`
+		RETURNING ` + postColumns
 
 	if p.Tags == nil {
 		p.Tags = []string{}
@@ -48,7 +71,7 @@ func (s *Store) Create(ctx context.Context, p *Post) error {
 		p.ReferenceID = ref
 
 		ctx, cancel := context.WithTimeout(ctx, storage.QueryTimeoutDuration)
-		err = s.db.QueryRow(
+		err = scanPost(s.db.QueryRow(
 			ctx,
 			q,
 			p.UserID,
@@ -56,12 +79,7 @@ func (s *Store) Create(ctx context.Context, p *Post) error {
 			p.Content,
 			p.Tags,
 			p.ReferenceID,
-		).Scan(
-			&p.ID,
-			&p.Version,
-			&p.CreatedAt,
-			&p.UpdatedAt,
-		)
+		), p)
 		cancel()
 		if err == nil {
 			return nil
@@ -81,7 +99,7 @@ func (s *Store) Create(ctx context.Context, p *Post) error {
 
 func (s *Store) GetByID(ctx context.Context, id uuid.UUID) (*Post, error) {
 	return s.getPost(ctx, `
-		SELECT id, reference_id, user_id, title, content, tags, version, created_at, updated_at
+		SELECT `+postColumns+`
 		FROM posts
 		WHERE id = $1 AND `+activePosts+`
 	`, id)
@@ -89,7 +107,7 @@ func (s *Store) GetByID(ctx context.Context, id uuid.UUID) (*Post, error) {
 
 func (s *Store) GetByReferenceID(ctx context.Context, ref string) (*Post, error) {
 	return s.getPost(ctx, `
-		SELECT id, reference_id, user_id, title, content, tags, version, created_at, updated_at
+		SELECT `+postColumns+`
 		FROM posts
 		WHERE reference_id = $1 AND `+activePosts+`
 	`, strings.ToUpper(ref))
@@ -100,28 +118,13 @@ func (s *Store) getPost(ctx context.Context, q string, arg any) (*Post, error) {
 	defer cancel()
 
 	var p Post
-	err := s.db.QueryRow(ctx, q, arg).Scan(
-		&p.ID,
-		&p.ReferenceID,
-		&p.UserID,
-		&p.Title,
-		&p.Content,
-		&p.Tags,
-		&p.Version,
-		&p.CreatedAt,
-		&p.UpdatedAt,
-	)
+	err := scanPost(s.db.QueryRow(ctx, q, arg), &p)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, storage.ErrNotFound
 		}
 		return nil, err
 	}
-
-	if p.Tags == nil {
-		p.Tags = []string{}
-	}
-
 	return &p, nil
 }
 
@@ -134,7 +137,7 @@ func (s *Store) Update(ctx context.Context, p *Post) error {
 		    version = version + 1,
 		    updated_at = NOW()
 		WHERE id = $4 AND version = $5 AND ` + activePosts + `
-		RETURNING version, updated_at
+		RETURNING version, updated_at, deleted_at
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, storage.QueryTimeoutDuration)
@@ -155,6 +158,7 @@ func (s *Store) Update(ctx context.Context, p *Post) error {
 	).Scan(
 		&p.Version,
 		&p.UpdatedAt,
+		&p.DeletedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -166,28 +170,28 @@ func (s *Store) Update(ctx context.Context, p *Post) error {
 	return nil
 }
 
-// SoftDelete sets deleted_at. Row stays for audit / recovery.
-func (s *Store) SoftDelete(ctx context.Context, id uuid.UUID) error {
+func (s *Store) SoftDelete(ctx context.Context, p *Post) error {
 	q := `
 		UPDATE posts
 		SET deleted_at = NOW(), updated_at = NOW()
 		WHERE id = $1 AND ` + activePosts + `
+		RETURNING updated_at, deleted_at
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, storage.QueryTimeoutDuration)
 	defer cancel()
 
-	tag, err := s.db.Exec(ctx, q, id)
+	err := s.db.QueryRow(ctx, q, p.ID).Scan(&p.UpdatedAt, &p.DeletedAt)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return storage.ErrNotFound
+		}
 		return err
-	}
-	if tag.RowsAffected() == 0 {
-		return storage.ErrNotFound
 	}
 	return nil
 }
 
-func (s *Store) List(ctx context.Context, q ListQuery) (*ListResult, error) {
+func (s *Store) List(ctx context.Context, q ListQuery) (*query.ListResult[*Post], error) {
 	ctx, cancel := context.WithTimeout(ctx, storage.QueryTimeoutDuration)
 	defer cancel()
 
@@ -231,7 +235,7 @@ func (s *Store) List(ctx context.Context, q ListQuery) (*ListResult, error) {
 
 	whereSQL := strings.Join(where, " AND ")
 
-	result := &ListResult{Items: make([]*Post, 0)}
+	result := &query.ListResult[*Post]{Items: make([]*Post, 0)}
 
 	if !q.UsingCursor() {
 		countQuery := `SELECT COUNT(*) FROM posts WHERE ` + whereSQL
@@ -249,21 +253,21 @@ func (s *Store) List(ctx context.Context, q ListQuery) (*ListResult, error) {
 		}
 		listArgs = append(listArgs, q.Limit)
 		listQuery = fmt.Sprintf(`
-			SELECT id, reference_id, user_id, title, content, tags, version, created_at, updated_at
+			SELECT %s
 			FROM posts
 			WHERE %s
 			ORDER BY created_at %s, id %s
 			LIMIT $%d
-		`, whereSQL, dir, dir, argN)
+		`, postColumns, whereSQL, dir, dir, argN)
 	} else {
 		listArgs = append(listArgs, q.Limit, q.Offset)
 		listQuery = fmt.Sprintf(`
-			SELECT id, reference_id, user_id, title, content, tags, version, created_at, updated_at
+			SELECT %s
 			FROM posts
 			WHERE %s
 			ORDER BY %s
 			LIMIT $%d OFFSET $%d
-		`, whereSQL, q.Sort.Clause(), argN, argN+1)
+		`, postColumns, whereSQL, q.Sort.Clause(), argN, argN+1)
 	}
 
 	rows, err := s.db.Query(ctx, listQuery, listArgs...)
@@ -274,21 +278,8 @@ func (s *Store) List(ctx context.Context, q ListQuery) (*ListResult, error) {
 
 	for rows.Next() {
 		var p Post
-		if err := rows.Scan(
-			&p.ID,
-			&p.ReferenceID,
-			&p.UserID,
-			&p.Title,
-			&p.Content,
-			&p.Tags,
-			&p.Version,
-			&p.CreatedAt,
-			&p.UpdatedAt,
-		); err != nil {
+		if err := scanPost(rows, &p); err != nil {
 			return nil, err
-		}
-		if p.Tags == nil {
-			p.Tags = []string{}
 		}
 		result.Items = append(result.Items, &p)
 	}

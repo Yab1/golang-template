@@ -3,7 +3,6 @@ package post
 import (
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/google/uuid"
 
@@ -35,29 +34,23 @@ func (q ListQuery) Parse(r *http.Request) (ListQuery, error) {
 	}
 	q.Page = page
 
-	sort, err := query.ParseSort(r, "created_at", "desc", sortColumns)
+	sort, err := query.ParseSort(r, "created_a	t", "desc", sortColumns)
 	if err != nil {
 		return q, err
 	}
 	q.Sort = sort
 
-	qs := r.URL.Query()
+	q.Search = query.OptionalString(r, "search")
 
-	if search := qs.Get("search"); search != "" {
-		q.Search = search
+	if tags := query.ParseCSV(r, "tags"); tags != nil {
+		q.Tags = tags
 	}
 
-	if tags := qs.Get("tags"); tags != "" {
-		q.Tags = strings.Split(tags, ",")
+	userID, err := query.ParseUUID(r, "user_id")
+	if err != nil {
+		return q, err
 	}
-
-	if userID := qs.Get("user_id"); userID != "" {
-		id, err := uuid.Parse(userID)
-		if err != nil {
-			return q, fmt.Errorf("invalid user_id")
-		}
-		q.UserID = &id
-	}
+	q.UserID = userID
 
 	// Cursor keyset is always (created_at, id). Reject conflicting sort_by.
 	if q.UsingCursor() && q.Sort.By != "created_at" {

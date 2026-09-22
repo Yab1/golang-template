@@ -15,9 +15,21 @@ internal/modules        one vertical slice per domain concept
 ## Rules
 
 - Each module owns its **model + SQL + HTTP**.
+- **Model = full table row**; internal cols use `json:"-"` (see [style.md](./style.md)).
 - Modules never import each other's stores. Cross-module reads go through a **narrow interface the consumer declares** (see `platform/authz.UserFetcher`).
+- List URL parsing: reuse `internal/platform/query` (`ParsePage`, `ParseSort`, `ParseUUID`, …); domain filters stay in module `query.go`.
 - FHIR wire shapes belong in a module's `fhir_mapping.go`. They are not DB models.
-- `internal/` stays private to this module. Do not invent a `pkg/` folder.
+- `internal/` stays private to this module. Do not invent a `pkg/` or `utils/` folder.
+
+## Style
+
+Language style: **[Uber Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md)**.
+
+Project adaptations (module files, model/`json:"-"`, lint commands): see [style.md](./style.md).
+
+```bash
+make lint
+```
 
 ## Env-driven features
 

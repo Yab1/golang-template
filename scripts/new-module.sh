@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Scaffold a domain module matching post/user layout: model + store + handler + module.
+# Scaffold a domain module: model + store + handler + query + module.
 # Usage: ./scripts/new-module.sh patient
 set -euo pipefail
 
@@ -19,11 +19,19 @@ fi
 
 mkdir -p "$DIR"
 
+TYPE="$(echo "${NAME}" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')"
+
 cat >"$DIR/model.go" <<EOF
 package ${NAME}
 
-// Resource is the domain model for this module.
-type Resource struct{}
+import "time"
+
+type ${TYPE} struct {
+	ID        string     \`json:"id"\`
+	CreatedAt time.Time  \`json:"created_at"\`
+	UpdatedAt time.Time  \`json:"updated_at"\`
+	DeletedAt *time.Time \`json:"-"\`
+}
 EOF
 
 cat >"$DIR/store.go" <<EOF
@@ -42,8 +50,36 @@ EOF
 
 cat >"$DIR/handler.go" <<EOF
 package ${NAME}
+EOF
 
-// HTTP handlers live here. Keep SQL in store.go.
+cat >"$DIR/query.go" <<EOF
+package ${NAME}
+
+import (
+	"net/http"
+
+	"${MOD}/internal/platform/query"
+)
+
+type ListQuery struct {
+	query.Page
+	Sort query.Sort
+}
+
+func (q ListQuery) Parse(r *http.Request) (ListQuery, error) {
+	page, err := query.ParsePage(r)
+	if err != nil {
+		return q, err
+	}
+	q.Page = page
+
+	sort, err := query.ParseSort(r, "created_at", "desc", []string{"created_at", "updated_at"})
+	if err != nil {
+		return q, err
+	}
+	q.Sort = sort
+	return q, nil
+}
 EOF
 
 cat >"$DIR/module.go" <<EOF
@@ -69,10 +105,9 @@ func New(db *pgxpool.Pool, respond *httpx.Responder) *Module {
 
 func (m *Module) Routes(r chi.Router) {
 	r.Route("/${NAME}s", func(r chi.Router) {
-		// Wire handlers here, then register Module.Routes in cmd/api/api.go.
 	})
 }
 EOF
 
-echo "created internal/modules/${NAME} {model,store,handler,module}.go"
-echo "next: register module.Routes in cmd/api/api.go, add migration, make gen-docs"
+echo "created internal/modules/${NAME} {model,store,handler,query,module}.go"
+echo "next: register Routes in cmd/api/api.go, add migration, make gen-docs"

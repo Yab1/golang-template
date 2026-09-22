@@ -242,7 +242,7 @@ func (m *Module) updatePostHandler(w http.ResponseWriter, r *http.Request) {
 func (m *Module) deletePostHandler(w http.ResponseWriter, r *http.Request) {
 	p := postFromCtx(r)
 
-	if err := m.posts.SoftDelete(r.Context(), p.ID); err != nil {
+	if err := m.posts.SoftDelete(r.Context(), p); err != nil {
 		switch {
 		case errors.Is(err, storage.ErrNotFound):
 			m.respond.NotFound(w, r, err)
