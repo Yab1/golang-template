@@ -31,6 +31,8 @@ type Config struct {
 	Mail      Mail
 	Metrics   Metrics
 	Audit     Audit
+	Kafka     Kafka
+	Eventing  Eventing
 }
 
 func Load() Config {
@@ -55,6 +57,8 @@ func Load() Config {
 		Mail:      loadMail(appName),
 		Metrics:   loadMetrics(),
 		Audit:     loadAudit(),
+		Kafka:     loadKafka(envName, appName),
+		Eventing:  loadEventing(),
 	}
 }
 

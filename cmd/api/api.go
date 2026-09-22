@@ -26,6 +26,7 @@ import (
 	"github.com/Yab1/golang-template/internal/platform/config"
 	"github.com/Yab1/golang-template/internal/platform/httpx"
 	"github.com/Yab1/golang-template/internal/platform/metrics"
+	"github.com/Yab1/golang-template/internal/platform/outbox"
 	"github.com/Yab1/golang-template/internal/platform/ratelimiter"
 )
 
@@ -39,6 +40,7 @@ type application struct {
 	files   *file.Module
 	pool    *pgxpool.Pool
 	rdb     *redis.Client
+	outbox  *outbox.Store
 }
 
 func (app *application) mount() http.Handler {

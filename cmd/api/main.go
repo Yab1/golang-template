@@ -1,9 +1,7 @@
 package main
 
 import (
-	"context"
 	"os"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -18,9 +16,11 @@ import (
 	"github.com/Yab1/golang-template/internal/platform/blob"
 	"github.com/Yab1/golang-template/internal/platform/config"
 	"github.com/Yab1/golang-template/internal/platform/db"
+	"github.com/Yab1/golang-template/internal/platform/event"
 	"github.com/Yab1/golang-template/internal/platform/httpx"
 	"github.com/Yab1/golang-template/internal/platform/logger"
 	"github.com/Yab1/golang-template/internal/platform/mailer"
+	"github.com/Yab1/golang-template/internal/platform/outbox"
 	"github.com/Yab1/golang-template/internal/platform/ratelimiter"
 	redisx "github.com/Yab1/golang-template/internal/platform/redis"
 	"github.com/Yab1/golang-template/internal/platform/refid"
@@ -80,18 +80,33 @@ func main() {
 	// --- audit ---
 	auditLog := setupAudit(cfg, pool, log)
 
+	// --- event outbox ---
+	var eventStore *outbox.Store
+	if cfg.Kafka.Enabled {
+		eventStore = outbox.NewStore(pool)
+	}
+	eventSource := "/services/api"
+
 	// --- auth (jwt, blocklist, guard, user module) ---
 	refs := refid.New(cfg.RefPrefix)
 	log.Infow("reference id prefix", "prefix", refs.Prefix())
-	users, guard := setupAuth(cfg, pool, respond, mail, refs, rdb, rl, auditLog, log)
+	users, guard := setupAuth(cfg, pool, respond, mail, refs, rdb, rl, auditLog, log, eventStore, eventSource)
 	warnProdAuth(cfg, log)
 
-	// --- seed ---
-	maybeSeed(cfg, users, log)
-
 	// --- domain modules ---
-	posts := post.New(pool, respond, guard, refs, rl.ByUser(toRule(cfg.RateLimit.Write)), auditLog, log)
-	files := setupFiles(cfg, respond, guard, rl, auditLog, log)
+	posts := post.New(
+		pool,
+		respond,
+		guard,
+		refs,
+		rl.ByUser(toRule(cfg.RateLimit.Write)),
+		auditLog,
+		log,
+		eventStore,
+		event.Topic(cfg.Kafka.TopicPrefix, "content", "post"),
+		eventSource,
+	)
+	files := setupFiles(cfg, pool, respond, guard, rl, auditLog, log, eventStore, eventSource)
 
 	app := &application{
 		config:  cfg,
@@ -103,6 +118,7 @@ func main() {
 		files:   files,
 		pool:    pool,
 		rdb:     rdb,
+		outbox:  eventStore,
 	}
 	if err := app.run(app.mount()); err != nil {
 		log.Fatal(err)
@@ -160,6 +176,8 @@ func setupAuth(
 	rl *ratelimiter.Middleware,
 	auditLog audit.Logger,
 	log *zap.SugaredLogger,
+	eventStore *outbox.Store,
+	eventSource string,
 ) (*user.Module, *authz.Guard) {
 	jwtAuth := authn.NewJWTAuthenticator(
 		cfg.Auth.Token.Secret,
@@ -180,6 +198,9 @@ func setupAuth(
 		rl.ByIPAuth(toRule(cfg.RateLimit.Auth)),
 		auditLog,
 		log,
+		eventStore,
+		event.Topic(cfg.Kafka.TopicPrefix, "identity", "user"),
+		eventSource,
 	)
 	guard := authz.NewGuard(jwtAuth, users, users, respond)
 	guard.Required = cfg.Auth.Required
@@ -207,23 +228,6 @@ func warnProdAuth(cfg config.Config, log *zap.SugaredLogger) {
 	}
 }
 
-func maybeSeed(cfg config.Config, users *user.Module, log *zap.SugaredLogger) {
-	if !cfg.Seed.Enabled {
-		return
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	u, created, err := users.SeedAdmin(ctx, cfg.Seed.Email, cfg.Seed.Username, cfg.Seed.Password, cfg.Seed.Role)
-	if err != nil {
-		log.Fatalw("seed admin failed", "error", err)
-	}
-	if created {
-		log.Infow("seeded admin", "id", u.ID, "reference_id", u.ReferenceID, "email", u.Email, "role", u.Role.Name)
-		return
-	}
-	log.Infow("seed admin already exists", "id", u.ID, "reference_id", u.ReferenceID, "email", u.Email)
-}
-
 func setupAudit(cfg config.Config, pool *pgxpool.Pool, log *zap.SugaredLogger) audit.Logger {
 	if !cfg.Audit.Enabled {
 		log.Info("audit logging disabled")
@@ -235,11 +239,14 @@ func setupAudit(cfg config.Config, pool *pgxpool.Pool, log *zap.SugaredLogger) a
 
 func setupFiles(
 	cfg config.Config,
+	pool *pgxpool.Pool,
 	respond *httpx.Responder,
 	guard *authz.Guard,
 	rl *ratelimiter.Middleware,
 	auditLog audit.Logger,
 	log *zap.SugaredLogger,
+	eventStore *outbox.Store,
+	eventSource string,
 ) *file.Module {
 	if !cfg.Files.Enabled {
 		return nil
@@ -249,5 +256,17 @@ func setupFiles(
 		log.Fatal(err)
 	}
 	log.Infow("blob store ready", "driver", store.Driver())
-	return file.New(store, respond, guard, rl.ByUser(toRule(cfg.RateLimit.Write)), cfg.Files, auditLog, log)
+	return file.New(
+		store,
+		pool,
+		respond,
+		guard,
+		rl.ByUser(toRule(cfg.RateLimit.Write)),
+		cfg.Files,
+		auditLog,
+		log,
+		eventStore,
+		event.Topic(cfg.Kafka.TopicPrefix, "files", "file"),
+		eventSource,
+	)
 }

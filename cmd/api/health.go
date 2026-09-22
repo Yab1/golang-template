@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/Yab1/golang-template/internal/platform/httpx"
+	"github.com/Yab1/golang-template/internal/platform/storage"
 )
 
 func (app *application) handleLive(w http.ResponseWriter, r *http.Request) {
@@ -58,6 +59,7 @@ func (app *application) handleHealthCheck(w http.ResponseWriter, r *http.Request
 			"mail":           app.config.Mail.Enabled,
 			"mail_driver":    app.config.Mail.Driver,
 			"metrics":        app.config.MetricsExposed(),
+			"kafka":          app.config.Kafka.Enabled,
 			"audit":          app.config.Audit.Enabled,
 			"seed":           app.config.Seed.Enabled,
 			"log_level":      app.config.Log.Level,
@@ -82,6 +84,12 @@ func (app *application) dependencyChecks(ctx context.Context) (map[string]string
 		ok = false
 	} else {
 		checks["db"] = "ok"
+		if err := storage.SchemaCurrent(ctx, app.pool, app.config.DB.ExpectedVersion); err != nil {
+			checks["schema"] = "outdated"
+			ok = false
+		} else {
+			checks["schema"] = "ok"
+		}
 	}
 
 	if app.config.Redis.Enabled {
@@ -93,6 +101,17 @@ func (app *application) dependencyChecks(ctx context.Context) (map[string]string
 			ok = false
 		} else {
 			checks["redis"] = "ok"
+		}
+	}
+
+	if app.outbox != nil {
+		count, oldest, err := app.outbox.Backlog(ctx)
+		if err != nil {
+			checks["outbox"] = "error"
+			ok = false
+		} else {
+			checks["outbox"] = strconv.FormatInt(count, 10)
+			checks["outbox_oldest_seconds"] = strconv.FormatFloat(oldest.Seconds(), 'f', 0, 64)
 		}
 	}
 

@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Yab1/golang-template/docs/eventing/schemas/cloudevents-envelope.v1.schema.json",
+  "title": "CloudEvents 1.0 event envelope",
+  "description": "Strict producer contract for structured-mode JSON events.",
+  "type": "object",
+  "required": [
+    "specversion",
+    "id",
+    "source",
+    "type",
+    "subject",
+    "time",
+    "datacontenttype",
+    "dataschema",
+    "correlationid",
+    "data"
+  ],
+  "properties": {
+    "specversion": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "source": {
+      "type": "string",
+      "format": "uri-reference",
+      "minLength": 1
+    },
+    "type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "subject": {
+      "type": "string",
+      "pattern": "^urn:(user|post|file):[A-Za-z0-9._-]+$"
+    },
+    "time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "datacontenttype": {
+      "const": "application/json"
+    },
+    "dataschema": {
+      "type": "string",
+      "format": "uri-reference",
+      "minLength": 1
+    },
+    "correlationid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "causationid": {
+      "type": "string"
+    },
+    "traceparent": {
+      "type": "string"
+    },
+    "aggregateversion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "data": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "x-registry-subject": "dev.yab1.golangtemplate.cloudevents-envelope.v1"
+}

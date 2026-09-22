@@ -13,6 +13,7 @@ import (
 	"github.com/Yab1/golang-template/internal/platform/config"
 	"github.com/Yab1/golang-template/internal/platform/httpx"
 	"github.com/Yab1/golang-template/internal/platform/mailer"
+	"github.com/Yab1/golang-template/internal/platform/outbox"
 	"github.com/Yab1/golang-template/internal/platform/refid"
 )
 
@@ -21,6 +22,7 @@ type authGuard interface {
 }
 
 type Module struct {
+	db             *pgxpool.Pool
 	users          *Store
 	roles          *RoleStore
 	refresh        *RefreshStore
@@ -32,6 +34,9 @@ type Module struct {
 	guard          authGuard
 	audit          audit.Logger
 	log            *zap.SugaredLogger
+	events         *outbox.Store
+	eventTopic     string
+	eventSource    string
 	appName        string
 	publicBaseURL  string
 	verifyRequired bool
@@ -57,6 +62,9 @@ func New(
 	authLimit func(http.Handler) http.Handler,
 	auditLog audit.Logger,
 	log *zap.SugaredLogger,
+	events *outbox.Store,
+	eventTopic string,
+	eventSource string,
 ) *Module {
 	if authLimit == nil {
 		authLimit = func(next http.Handler) http.Handler { return next }
@@ -81,6 +89,7 @@ func New(
 	}
 
 	return &Module{
+		db:             db,
 		users:          NewStore(db, refs),
 		roles:          NewRoleStore(db),
 		refresh:        NewRefreshStore(db),
@@ -91,6 +100,9 @@ func New(
 		mail:           mail,
 		audit:          auditLog,
 		log:            log,
+		events:         events,
+		eventTopic:     eventTopic,
+		eventSource:    eventSource,
 		appName:        appName,
 		publicBaseURL:  publicBaseURL,
 		verifyRequired: authCfg.EmailVerifyRequired,

@@ -1,0 +1,16 @@
+{
+  "specversion": "1.0",
+  "id": "10000000-0000-4000-8000-000000000010",
+  "source": "/services/api",
+  "type": "dev.yab1.golangtemplate.file.deleted.v1",
+  "subject": "urn:file:50000000-0000-4000-8000-000000000001.pdf",
+  "time": "2026-09-22T10:10:00Z",
+  "datacontenttype": "application/json",
+  "dataschema": "/docs/eventing/schemas/file-deleted.v1.schema.json",
+  "correlationid": "30000000-0000-4000-8000-000000000010",
+  "data": {
+    "file_id": "50000000-0000-4000-8000-000000000001.pdf",
+    "version": 2
+  },
+  "aggregateversion": 2
+}

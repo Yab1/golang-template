@@ -1,0 +1,16 @@
+{
+  "specversion": "1.0",
+  "id": "10000000-0000-4000-8000-000000000008",
+  "source": "/services/api",
+  "type": "dev.yab1.golangtemplate.post.deleted.v1",
+  "subject": "urn:post:40000000-0000-4000-8000-000000000001",
+  "time": "2026-09-22T09:20:00Z",
+  "datacontenttype": "application/json",
+  "dataschema": "/docs/eventing/schemas/post-deleted.v1.schema.json",
+  "correlationid": "30000000-0000-4000-8000-000000000008",
+  "data": {
+    "post_id": "40000000-0000-4000-8000-000000000001",
+    "version": 4
+  },
+  "aggregateversion": 4
+}

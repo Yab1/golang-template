@@ -1,0 +1,19 @@
+{
+  "specversion": "1.0",
+  "id": "10000000-0000-4000-8000-000000000009",
+  "source": "/services/api",
+  "type": "dev.yab1.golangtemplate.file.uploaded.v1",
+  "subject": "urn:file:50000000-0000-4000-8000-000000000001.pdf",
+  "time": "2026-09-22T10:00:00Z",
+  "datacontenttype": "application/json",
+  "dataschema": "/docs/eventing/schemas/file-uploaded.v1.schema.json",
+  "correlationid": "30000000-0000-4000-8000-000000000009",
+  "data": {
+    "file_id": "50000000-0000-4000-8000-000000000001.pdf",
+    "size_bytes": 4096,
+    "media_type": "application/pdf",
+    "storage_driver": "s3",
+    "version": 1
+  },
+  "aggregateversion": 1
+}

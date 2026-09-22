@@ -18,6 +18,7 @@ type User struct {
 	IsVisible    bool            `json:"is_visible"`
 	RoleID       int64           `json:"role_id"`
 	Role         Role            `json:"role"`
+	Version      int64           `json:"version"`
 	Metadata     json.RawMessage `json:"metadata"`
 	CreatedAt    time.Time       `json:"created_at"`
 	UpdatedAt    time.Time       `json:"updated_at"`

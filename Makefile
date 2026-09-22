@@ -12,6 +12,39 @@ GOLANGCI_LINT_VERSION  ?= v2.13.2
 run:
 	@air
 
+.PHONY: worker
+worker:
+	@go run ./cmd/worker
+
+.PHONY: post
+post:
+	@go run ./cmd/post
+
+.PHONY: kafka-up
+kafka-up:
+	@docker compose -f compose.kafka.yml up -d
+
+.PHONY: kafka-down
+kafka-down:
+	@docker compose -f compose.kafka.yml down
+
+.PHONY: kafka-topics
+kafka-topics:
+	@./scripts/kafka-topics.sh
+
+.PHONY: kafka-schemas
+kafka-schemas:
+	@./scripts/register-schemas.sh
+
+.PHONY: kafka-replay
+kafka-replay:
+	@test -n "$(topic)" || (echo "usage: make kafka-replay topic=<dlq-topic> [limit=100]" && exit 1)
+	@go run ./cmd/replay -topic "$(topic)" -limit "$(or $(limit),0)"
+
+.PHONY: release
+release:
+	@./scripts/release.sh
+
 .PHONY: test
 test:
 	@go test ./...

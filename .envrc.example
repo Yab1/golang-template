@@ -1,5 +1,6 @@
 # Copy to .envrc and adjust. Then: direnv allow
-# This repo does not ship docker-compose. Point DB/redis/minio/mail at services you already run.
+# This repo does not ship full app compose. Use compose.kafka.yml for local Kafka + schema registry.
+# Point DB/redis/minio/mail at services you already run.
 # Sections match internal/platform/config/*.go loaders.
 
 # --- app ---
@@ -38,6 +39,7 @@ export DB_ADDR=postgres://admin:password@localhost:5432/golang_template?sslmode=
 export DB_MAX_CONNS=30
 export DB_MIN_CONNS=2
 export DB_MAX_CONN_IDLE_TIME=15m
+export DB_EXPECTED_SCHEMA_VERSION=6
 
 # --- auth ---
 export AUTH_REQUIRED=true
@@ -55,7 +57,7 @@ export AUTH_RESET_TOKEN_EXP=1h
 export AUTH_DEV_TOKEN=dev-token
 export AUTH_DEV_USER_ID=
 
-# --- seed (idempotent admin on boot) ---
+# --- seed (idempotent admin via POST stage: make post / scripts/release.sh) ---
 export SEED_ENABLED=false
 export SEED_ADMIN_EMAIL=admin@localhost
 export SEED_ADMIN_USERNAME=admin
@@ -113,3 +115,26 @@ export METRICS_TOKEN=
 
 # --- audit ---
 export AUDIT_ENABLED=true
+
+# --- kafka / eventing ---
+export KAFKA_ENABLED=false
+export KAFKA_BROKERS=localhost:9092
+export KAFKA_CLIENT_ID=golang-template
+export KAFKA_USERNAME=
+export KAFKA_PASSWORD=
+export KAFKA_TLS=false
+export KAFKA_SCHEMA_REGISTRY_URL=http://localhost:8081
+export KAFKA_TOPIC_PREFIX=development.golang-template
+export EVENT_WORKER_ADDR=:8081
+# all | relay | consumer
+export EVENT_WORKER_MODE=all
+export EVENT_CONSUMER_NAME=event-logger
+export EVENT_OUTBOX_BATCH_SIZE=100
+export EVENT_OUTBOX_POLL_INTERVAL=1s
+export EVENT_OUTBOX_CLAIM_LEASE=30s
+export EVENT_CONSUMER_MAX_ATTEMPTS=4
+export EVENT_RETRY_DELAY_1=1m
+export EVENT_RETRY_DELAY_2=10m
+export EVENT_RETRY_DELAY_3=1h
+export EVENT_WORKER_SHUTDOWN_TIMEOUT=30s
+export DB_EXPECTED_SCHEMA_VERSION=6

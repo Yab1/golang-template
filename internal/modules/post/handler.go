@@ -84,7 +84,7 @@ func (m *Module) createPostHandler(w http.ResponseWriter, r *http.Request) {
 		p.Tags = []string{}
 	}
 
-	if err := m.posts.Create(r.Context(), p); err != nil {
+	if err := m.create(r.Context(), r, p); err != nil {
 		m.respond.InternalServerError(w, r, err)
 		return
 	}
@@ -189,6 +189,8 @@ func (m *Module) getPostHandler(w http.ResponseWriter, r *http.Request) {
 //	@Router			/posts/{postID} [patch]
 func (m *Module) updatePostHandler(w http.ResponseWriter, r *http.Request) {
 	p := postFromCtx(r)
+	wasVisible := p.IsVisible
+	var changed []string
 
 	var payload UpdatePostPayload
 	if err := httpx.ReadJSON(w, r, &payload); err != nil {
@@ -203,18 +205,22 @@ func (m *Module) updatePostHandler(w http.ResponseWriter, r *http.Request) {
 
 	if payload.Title != nil {
 		p.Title = *payload.Title
+		changed = append(changed, "title")
 	}
 	if payload.Content != nil {
 		p.Content = *payload.Content
+		changed = append(changed, "content")
 	}
 	if payload.Tags != nil {
 		p.Tags = payload.Tags
+		changed = append(changed, "tags")
 	}
 	if payload.IsVisible != nil {
 		p.IsVisible = *payload.IsVisible
 	}
 	if len(payload.Metadata) > 0 && string(payload.Metadata) != "null" {
 		p.Metadata = payload.Metadata
+		changed = append(changed, "metadata")
 	}
 
 	principal := authz.PrincipalFrom(r)
@@ -224,7 +230,7 @@ func (m *Module) updatePostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	p.UpdatedBy = stamp.Ptr(principal.ID)
 
-	if err := m.posts.Update(r.Context(), p); err != nil {
+	if err := m.update(r.Context(), r, p, wasVisible, changed); err != nil {
 		switch {
 		case errors.Is(err, storage.ErrNotFound):
 			m.respond.NotFound(w, r, err)
@@ -271,7 +277,7 @@ func (m *Module) deletePostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	p.DeletedBy = stamp.Ptr(principal.ID)
 
-	if err := m.posts.SoftDelete(r.Context(), p); err != nil {
+	if err := m.delete(r.Context(), r, p); err != nil {
 		switch {
 		case errors.Is(err, storage.ErrNotFound):
 			m.respond.NotFound(w, r, err)

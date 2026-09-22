@@ -30,6 +30,10 @@ type Store struct {
 	refs *refid.Generator
 }
 
+type querier interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
 func NewStore(db *pgxpool.Pool, refs *refid.Generator) *Store {
 	return &Store{db: db, refs: refs}
 }
@@ -70,6 +74,14 @@ func scanPost(sc interface{ Scan(dest ...any) error }, p *Post) error {
 }
 
 func (s *Store) Create(ctx context.Context, p *Post) error {
+	return s.create(ctx, s.db, p)
+}
+
+func (s *Store) CreateTx(ctx context.Context, tx pgx.Tx, p *Post) error {
+	return s.create(ctx, tx, p)
+}
+
+func (s *Store) create(ctx context.Context, db querier, p *Post) error {
 	q := `
 		INSERT INTO posts (user_id, title, content, tags, reference_id, is_visible, metadata, created_by, updated_by)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -89,7 +101,7 @@ func (s *Store) Create(ctx context.Context, p *Post) error {
 		p.ReferenceID = ref
 
 		ctx, cancel := context.WithTimeout(ctx, storage.QueryTimeoutDuration)
-		err = scanPost(s.db.QueryRow(
+		err = scanPost(db.QueryRow(
 			ctx,
 			q,
 			p.UserID,
@@ -151,6 +163,14 @@ func (s *Store) getPost(ctx context.Context, q string, arg any) (*Post, error) {
 }
 
 func (s *Store) Update(ctx context.Context, p *Post) error {
+	return s.update(ctx, s.db, p)
+}
+
+func (s *Store) UpdateTx(ctx context.Context, tx pgx.Tx, p *Post) error {
+	return s.update(ctx, tx, p)
+}
+
+func (s *Store) update(ctx context.Context, db querier, p *Post) error {
 	q := `
 		UPDATE posts
 		SET title = $1,
@@ -173,7 +193,7 @@ func (s *Store) Update(ctx context.Context, p *Post) error {
 	}
 	p.Metadata = metaOrEmpty(p.Metadata)
 
-	err := s.db.QueryRow(
+	err := db.QueryRow(
 		ctx,
 		q,
 		p.Title,
@@ -205,6 +225,14 @@ func (s *Store) Update(ctx context.Context, p *Post) error {
 }
 
 func (s *Store) SoftDelete(ctx context.Context, p *Post) error {
+	return s.softDelete(ctx, s.db, p)
+}
+
+func (s *Store) SoftDeleteTx(ctx context.Context, tx pgx.Tx, p *Post) error {
+	return s.softDelete(ctx, tx, p)
+}
+
+func (s *Store) softDelete(ctx context.Context, db querier, p *Post) error {
 	q := `
 		UPDATE posts
 		SET deleted_at = NOW(),
@@ -218,7 +246,7 @@ func (s *Store) SoftDelete(ctx context.Context, p *Post) error {
 	ctx, cancel := context.WithTimeout(ctx, storage.QueryTimeoutDuration)
 	defer cancel()
 
-	err := s.db.QueryRow(ctx, q, p.ID, p.DeletedBy).Scan(
+	err := db.QueryRow(ctx, q, p.ID, p.DeletedBy).Scan(
 		&p.UpdatedAt,
 		&p.UpdatedBy,
 		&p.DeletedAt,

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Yab1/golang-template/docs/eventing/schemas/post-deleted.v1.schema.json",
+  "title": "PostDeleted v1",
+  "allOf": [
+    {
+      "$ref": "./cloudevents-envelope.v1.schema.json"
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "dev.yab1.golangtemplate.post.deleted.v1"
+        },
+        "subject": {
+          "pattern": "^urn:post:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "dataschema": {
+          "const": "/docs/eventing/schemas/post-deleted.v1.schema.json"
+        },
+        "data": {
+          "type": "object",
+          "required": ["post_id", "version"],
+          "properties": {
+            "post_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "version": {
+              "type": "integer",
+              "minimum": 2
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ],
+  "x-registry-subject": "dev.yab1.golangtemplate.post-deleted.v1"
+}

@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS users (
   is_active boolean NOT NULL DEFAULT false,
   is_visible boolean NOT NULL DEFAULT true,
   role_id bigint NOT NULL REFERENCES roles (id),
+  version bigint NOT NULL DEFAULT 1,
   token_version int NOT NULL DEFAULT 1,
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_by uuid REFERENCES users (id) ON DELETE SET NULL,

@@ -13,7 +13,6 @@ import (
 	"github.com/Yab1/golang-template/internal/platform/authz"
 	"github.com/Yab1/golang-template/internal/platform/httpx"
 	"github.com/Yab1/golang-template/internal/platform/mailer"
-	"github.com/Yab1/golang-template/internal/platform/stamp"
 	"github.com/Yab1/golang-template/internal/platform/storage"
 )
 
@@ -68,7 +67,7 @@ func (m *Module) verifyEmailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := m.users.Activate(r.Context(), tok.UserID, stamp.Ptr(tok.UserID)); err != nil {
+	if err := m.activate(r.Context(), r, tok.UserID); err != nil {
 		m.respond.InternalServerError(w, r, err)
 		return
 	}
@@ -186,14 +185,16 @@ func (m *Module) resetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 		m.respond.InternalServerError(w, r, err)
 		return
 	}
-	actor := stamp.Ptr(tok.UserID)
-	if err := m.users.UpdatePassword(r.Context(), tok.UserID, pw.hash, actor); err != nil {
+	if err := m.activate(r.Context(), r, tok.UserID); err != nil {
+		m.respond.InternalServerError(w, r, err)
+		return
+	}
+	if err := m.updatePassword(r.Context(), r, tok.UserID, pw.hash, "password_reset"); err != nil {
 		m.respond.InternalServerError(w, r, err)
 		return
 	}
 	_ = m.refresh.RevokeAllForUser(r.Context(), tok.UserID)
 	_, _ = m.users.IncrementTokenVersion(r.Context(), tok.UserID)
-	_ = m.users.Activate(r.Context(), tok.UserID, actor)
 
 	audit.Record(m.audit, m.log, r, audit.ActionUpdate, "user", tok.UserID.String(), map[string]any{
 		"reason": "reset_password",
@@ -252,8 +253,7 @@ func (m *Module) changePasswordHandler(w http.ResponseWriter, r *http.Request) {
 		m.respond.InternalServerError(w, r, err)
 		return
 	}
-	actor := stamp.Ptr(u.ID)
-	if err := m.users.UpdatePassword(r.Context(), u.ID, pw.hash, actor); err != nil {
+	if err := m.updatePassword(r.Context(), r, u.ID, pw.hash, "user_change"); err != nil {
 		m.respond.InternalServerError(w, r, err)
 		return
 	}

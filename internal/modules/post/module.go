@@ -10,16 +10,21 @@ import (
 	"github.com/Yab1/golang-template/internal/platform/audit"
 	"github.com/Yab1/golang-template/internal/platform/authz"
 	"github.com/Yab1/golang-template/internal/platform/httpx"
+	"github.com/Yab1/golang-template/internal/platform/outbox"
 	"github.com/Yab1/golang-template/internal/platform/refid"
 )
 
 type Module struct {
-	posts      *Store
-	respond    *httpx.Responder
-	guard      *authz.Guard
-	audit      audit.Logger
-	log        *zap.SugaredLogger
-	writeLimit func(http.Handler) http.Handler
+	db          *pgxpool.Pool
+	posts       *Store
+	respond     *httpx.Responder
+	guard       *authz.Guard
+	audit       audit.Logger
+	log         *zap.SugaredLogger
+	events      *outbox.Store
+	eventTopic  string
+	eventSource string
+	writeLimit  func(http.Handler) http.Handler
 }
 
 func New(
@@ -30,6 +35,9 @@ func New(
 	writeLimit func(http.Handler) http.Handler,
 	auditLog audit.Logger,
 	log *zap.SugaredLogger,
+	events *outbox.Store,
+	eventTopic string,
+	eventSource string,
 ) *Module {
 	if writeLimit == nil {
 		writeLimit = func(next http.Handler) http.Handler { return next }
@@ -39,12 +47,16 @@ func New(
 	}
 
 	return &Module{
-		posts:      NewStore(db, refs),
-		respond:    respond,
-		guard:      guard,
-		audit:      auditLog,
-		log:        log,
-		writeLimit: writeLimit,
+		db:          db,
+		posts:       NewStore(db, refs),
+		respond:     respond,
+		guard:       guard,
+		audit:       auditLog,
+		log:         log,
+		events:      events,
+		eventTopic:  eventTopic,
+		eventSource: eventSource,
+		writeLimit:  writeLimit,
 	}
 }
 

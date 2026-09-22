@@ -1,0 +1,18 @@
+{
+  "specversion": "1.0",
+  "id": "10000000-0000-4000-8000-000000000007",
+  "source": "/services/api",
+  "type": "dev.yab1.golangtemplate.post.visibility-changed.v1",
+  "subject": "urn:post:40000000-0000-4000-8000-000000000001",
+  "time": "2026-09-22T09:15:00Z",
+  "datacontenttype": "application/json",
+  "dataschema": "/docs/eventing/schemas/post-visibility-changed.v1.schema.json",
+  "correlationid": "30000000-0000-4000-8000-000000000007",
+  "data": {
+    "post_id": "40000000-0000-4000-8000-000000000001",
+    "previous_visibility": true,
+    "is_visible": false,
+    "version": 3
+  },
+  "aggregateversion": 3
+}

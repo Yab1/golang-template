@@ -1,0 +1,18 @@
+{
+  "specversion": "1.0",
+  "id": "10000000-0000-4000-8000-000000000004",
+  "source": "/services/api",
+  "type": "dev.yab1.golangtemplate.user.visibility-changed.v1",
+  "subject": "urn:user:20000000-0000-4000-8000-000000000001",
+  "time": "2026-09-22T08:15:00Z",
+  "datacontenttype": "application/json",
+  "dataschema": "/docs/eventing/schemas/user-visibility-changed.v1.schema.json",
+  "correlationid": "30000000-0000-4000-8000-000000000004",
+  "data": {
+    "user_id": "20000000-0000-4000-8000-000000000001",
+    "previous_visibility": true,
+    "is_visible": false,
+    "version": 4
+  },
+  "aggregateversion": 4
+}

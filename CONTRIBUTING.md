@@ -25,7 +25,9 @@ make migrate-up
 make lint
 ```
 
-Checklist: new DB column → migration + model field + store Scan.
+Eventing: `make kafka-up && make kafka-topics && make kafka-schemas`. Worker: `make worker`. Terminal POST/seed: `make post`. Never seed from API boot.
+
+Checklist: new DB column → migration + model field + store Scan. New event → schema + example + outbox enqueue in the domain transaction.
 
 ## PRs
 

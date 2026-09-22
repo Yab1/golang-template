@@ -60,7 +60,7 @@ func (m *Module) createUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := m.users.Create(r.Context(), u); err != nil {
+	if err := m.create(r.Context(), r, u); err != nil {
 		if errors.Is(err, storage.ErrConflict) {
 			m.respond.Conflict(w, r, errors.New("email or username already exists"))
 			return

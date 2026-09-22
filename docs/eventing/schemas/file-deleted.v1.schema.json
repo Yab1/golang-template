@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Yab1/golang-template/docs/eventing/schemas/file-deleted.v1.schema.json",
+  "title": "FileDeleted v1",
+  "allOf": [
+    {
+      "$ref": "./cloudevents-envelope.v1.schema.json"
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "dev.yab1.golangtemplate.file.deleted.v1"
+        },
+        "subject": {
+          "pattern": "^urn:file:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(\\.[a-z0-9]+)?$"
+        },
+        "dataschema": {
+          "const": "/docs/eventing/schemas/file-deleted.v1.schema.json"
+        },
+        "data": {
+          "type": "object",
+          "required": ["file_id", "version"],
+          "properties": {
+            "file_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(\\.[a-z0-9]+)?$"
+            },
+            "version": {
+              "type": "integer",
+              "minimum": 2
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ],
+  "x-registry-subject": "dev.yab1.golangtemplate.file-deleted.v1"
+}

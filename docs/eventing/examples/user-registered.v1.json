@@ -1,0 +1,19 @@
+{
+  "specversion": "1.0",
+  "id": "10000000-0000-4000-8000-000000000001",
+  "source": "/services/api",
+  "type": "dev.yab1.golangtemplate.user.registered.v1",
+  "subject": "urn:user:20000000-0000-4000-8000-000000000001",
+  "time": "2026-09-22T08:00:00Z",
+  "datacontenttype": "application/json",
+  "dataschema": "/docs/eventing/schemas/user-registered.v1.schema.json",
+  "correlationid": "30000000-0000-4000-8000-000000000001",
+  "data": {
+    "user_id": "20000000-0000-4000-8000-000000000001",
+    "reference_id": "GTL-USR-A7K2M",
+    "is_active": false,
+    "is_visible": true,
+    "version": 1
+  },
+  "aggregateversion": 1
+}

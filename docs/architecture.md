@@ -4,10 +4,13 @@ Go layout follows [Organizing a Go module](https://go.dev/doc/modules/layout) an
 
 ```
 cmd/api                 HTTP process: bootstrap, mount, health
+cmd/worker              Kafka relay + consumers
+cmd/post                terminal POST stage (seed)
+cmd/replay              DLQ replay
 cmd/migrate             schema files only
 internal/platform       infrastructure, no domain knowledge
   config db redis ratelimiter httpx storage query authn authz blob
-  mailer logger metrics refid audit
+  mailer logger metrics refid audit event outbox inbox kafka eventing
 internal/modules        one vertical slice per domain concept
   user/ post/ file/     (later: clinical/patient, fhir/observation)
 ```
@@ -64,6 +67,8 @@ Config loaders live under `internal/platform/config/` — one file per env secti
 | `METRICS_ENABLED` | false | `/metrics` Prometheus. Non-dev requires `METRICS_TOKEN` |
 | `METRICS_TOKEN` | empty | `X-Metrics-Token` or `Authorization: Bearer` |
 | `AUDIT_ENABLED` | true | Append-only `audit_logs` on post/user/file mutations |
+| `KAFKA_ENABLED` | false | Write domain mutations to `event_outbox`; worker publishes/consumes |
+| `DB_EXPECTED_SCHEMA_VERSION` | 6 | `/ready` fails if `schema_migrations.version` is behind |
 | `TRUSTED_PROXIES` | empty | CIDRs allowed to set `X-Forwarded-For` / `X-Real-IP` |
 | `LOG_LEVEL` | debug in development | `debug` \| `info` \| `warn` \| `error` |
 | `LOG_FORMAT` | console in development | `console` \| `json` |
@@ -181,13 +186,33 @@ Success envelope:
 
 ### Soft delete + audit + actor stamps
 
-Migrations: `000001` users (stamps + `metadata` + `is_visible`), `000004_audit_logs`, `000005_create_posts` (sample — delete when forking).
+Migrations: `000001` users (stamps + `metadata` + `is_visible`), `000004_audit_logs`, `000005_eventing` (outbox/inbox/file_objects), `000006_create_posts` (sample — delete when forking).
 
 - Posts `DELETE` soft-deletes (`deleted_at` + `deleted_by`). List skips deleted + `is_visible=false`; get-by-id skips only deleted.
 - Row stamps: `created_by` / `updated_by` / `deleted_by` on posts; `created_by` / `updated_by` on users. Owner field (`user_id`) ≠ actor stamps.
 - `metadata` jsonb default `{}` for arbitrary per-row fields.
 - When `AUDIT_ENABLED`, mutations append to `audit_logs` via `audit.Record`. Failure is logged; HTTP still succeeds.
 - Covered today: post CUD, user register / verify / password change+reset, file upload/delete.
+
+### Event-driven architecture
+
+Kafka is optional (`KAFKA_ENABLED`). HTTP stays synchronous. Domain writes and `event_outbox` rows share one transaction. `cmd/worker` relays unpublished rows and consumes with inbox dedupe, retry topics, and DLQs.
+
+Contracts: [ADR 0001](./adr/0001-kafka-event-driven-architecture.md), [topic catalog](./eventing/topic-catalog.md), [runbook](./eventing/runbook.md).
+
+Release order (`scripts/release.sh`): PRECHECK → BACKUP → DB_MIGRATE → BROKER_PROVISION → SCHEMA_REGISTER → DEPLOY_API → DEPLOY_WORKER → VERIFY → ENABLE → POST. `POST` (`cmd/post`) is last and owns seeding. API/worker never auto-migrate.
+
+Local Kafka:
+
+```bash
+make kafka-up
+make kafka-topics
+make kafka-schemas
+make migrate-up
+make worker
+make post
+```
+
 
 ## Adding a new EMR resource
 
