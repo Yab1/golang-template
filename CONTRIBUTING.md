@@ -2,9 +2,9 @@
 
 ## Style
 
-1. Read [docs/style.md](docs/style.md).
-2. Follow the [Uber Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md) for Go language conventions.
-3. Follow this repo’s **module file layout** and **model = table + `json:"-"`** rules in `docs/style.md` (they override Uber when they conflict).
+Full setup (tools, editor, lint) and every project rule: **[docs/style.md](docs/style.md)**.
+
+Uber Go Guide for language. This repo’s module layout and model=`json:"-"` rules **win** if they conflict with Uber.
 
 ```bash
 make install-tools
