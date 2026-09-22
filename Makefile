@@ -20,13 +20,19 @@ worker:
 post:
 	@go run ./cmd/post
 
+.PHONY: infra-up
+infra-up:
+	@$(MAKE) -C infra up
+
+.PHONY: infra-down
+infra-down:
+	@$(MAKE) -C infra down
+
 .PHONY: kafka-up
-kafka-up:
-	@docker compose -f compose.kafka.yml up -d
+kafka-up: infra-up
 
 .PHONY: kafka-down
-kafka-down:
-	@docker compose -f compose.kafka.yml down
+kafka-down: infra-down
 
 .PHONY: kafka-topics
 kafka-topics:

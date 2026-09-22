@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREFIX="${KAFKA_TOPIC_PREFIX:-development.golang-template}"
 CONSUMER="${EVENT_CONSUMER_NAME:-event-logger}"
 PARTITIONS="${KAFKA_TOPIC_PARTITIONS:-6}"
 REPLICATION="${KAFKA_TOPIC_REPLICATION_FACTOR:-1}"
-BOOTSTRAP="${KAFKA_BOOTSTRAP_SERVER:-kafka:29092}"
+# Host clients: localhost:9092. Docker network (infra): kafka:9093.
+BOOTSTRAP="${KAFKA_BOOTSTRAP_SERVER:-kafka:9093}"
+ADMIN_IMAGE="${KAFKA_ADMIN_IMAGE:-apache/kafka:4.0.0}"
 
 sources=(
   "${PREFIX}.identity.user.events.v1"
@@ -16,7 +19,8 @@ sources=(
 create_topic() {
   local topic="$1"
   local retention="$2"
-  docker compose -f compose.kafka.yml exec -T kafka kafka-topics \
+  docker run --rm --network infra "$ADMIN_IMAGE" \
+    /opt/kafka/bin/kafka-topics.sh \
     --bootstrap-server "$BOOTSTRAP" \
     --create \
     --if-not-exists \

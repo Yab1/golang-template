@@ -128,7 +128,7 @@ Generated on insert (`internal/platform/refid`). Unique, retry on collision. Fro
 - `local`: disk under `STORAGE_LOCAL_DIR`, GET `/api/v1/files/{key}`
 - `minio` / `s3`: same S3 client; MinIO uses path-style + `S3_ENDPOINT`
 
-No compose in this repo. Point `REDIS_ADDR`, `S3_ENDPOINT`, `SMTP_HOST` at whatever is already running.
+Shared deps live under [`infra/`](../infra/) (`make infra-up`). Point `DB_ADDR`, `REDIS_ADDR` / `REDIS_PW`, `KAFKA_BROKERS` at that stack. Optional MinIO/SMTP still external until added.
 
 ### Mail
 
@@ -202,12 +202,12 @@ Contracts: [ADR 0001](./adr/0001-kafka-event-driven-architecture.md), [topic cat
 
 Release order (`scripts/release.sh`): PRECHECK → BACKUP → DB_MIGRATE → BROKER_PROVISION → SCHEMA_REGISTER → DEPLOY_API → DEPLOY_WORKER → VERIFY → ENABLE → POST. `POST` (`cmd/post`) is last and owns seeding. API/worker never auto-migrate.
 
-Local Kafka:
+Local infra (Postgres, Redis, Kafka, Kafka UI):
 
 ```bash
-make kafka-up
+make infra-up          # or: cd infra && make up
 make kafka-topics
-make kafka-schemas
+make kafka-schemas     # needs a schema registry (not in infra yet)
 make migrate-up
 make worker
 make post

@@ -1,0 +1,5 @@
+name: infra
+
+networks:
+  infra:
+    name: infra

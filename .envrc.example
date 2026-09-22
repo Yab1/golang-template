@@ -1,6 +1,5 @@
 # Copy to .envrc and adjust. Then: direnv allow
-# This repo does not ship full app compose. Use compose.kafka.yml for local Kafka + schema registry.
-# Point DB/redis/minio/mail at services you already run.
+# Shared deps: cd infra && make up (postgres, redis, kafka, kafka-ui).
 # Sections match internal/platform/config/*.go loaders.
 
 # --- app ---
@@ -66,7 +65,8 @@ export SEED_ADMIN_ROLE=admin
 
 # --- redis ---
 export REDIS_ADDR=localhost:6379
-export REDIS_PW=
+# Must match infra/.env REDIS_PASSWORD when using ./infra redis.
+export REDIS_PW=dev-redis-change-me
 export REDIS_DB=0
 export REDIS_ENABLED=true
 

@@ -25,7 +25,7 @@ make migrate-up
 make lint
 ```
 
-Eventing: `make kafka-up && make kafka-topics && make kafka-schemas`. Worker: `make worker`. Terminal POST/seed: `make post`. Never seed from API boot.
+Infra: `make infra-up` (Postgres, Redis, Kafka, Kafka UI under `infra/`). Eventing: `make kafka-topics && make kafka-schemas` (schema registry still separate until added to `infra/`). Worker: `make worker`. Terminal POST/seed: `make post`. Never seed from API boot.
 
 Checklist: new DB column → migration + model field + store Scan. New event → schema + example + outbox enqueue in the domain transaction.
 
