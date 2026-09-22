@@ -8,6 +8,13 @@ pipeline {
             }
         }
 
+        stage('PRECHECK') {
+            steps {
+                sh 'go test ./...'
+                sh 'golangci-lint run ./...'
+            }
+        }
+
         stage('Prepare Environment') {
             steps {
                 script {

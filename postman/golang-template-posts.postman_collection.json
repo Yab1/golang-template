@@ -1,16 +1,46 @@
 {
   "info": {
-    "name": "Golang Template — Posts + Auth",
-    "description": "Register → login → posts CRUD with Bearer JWT. RBAC on patch/delete.",
+    "name": "Golang Template API",
+    "description": "Auth (access+refresh), posts CRUD, files, health. Bearer JWT on protected routes.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:8080" },
     { "key": "access_token", "value": "" },
     { "key": "refresh_token", "value": "" },
-    { "key": "postId", "value": "" }
+    { "key": "postId", "value": "" },
+    { "key": "fileKey", "value": "" }
   ],
   "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Live",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/live"
+          }
+        },
+        {
+          "name": "Ready",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/ready"
+          }
+        },
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health"
+          }
+        }
+      ]
+    },
     {
       "name": "Auth",
       "item": [
@@ -191,6 +221,65 @@
               { "key": "Authorization", "value": "Bearer {{access_token}}" }
             ],
             "url": "{{baseUrl}}/api/v1/posts/{{postId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Files",
+      "item": [
+        {
+          "name": "Upload File",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  const file = body.result || body;",
+                  "  if (file.key) pm.collectionVariables.set('fileKey', file.key);",
+                  "  else if (file.id) pm.collectionVariables.set('fileKey', file.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/files"
+          }
+        },
+        {
+          "name": "Get File",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/files/{{fileKey}}"
+          }
+        },
+        {
+          "name": "Delete File",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/files/{{fileKey}}"
           }
         }
       ]

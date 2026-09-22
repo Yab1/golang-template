@@ -1,0 +1,26 @@
+#!/bin/sh
+# Block direct push to main. Use a branch and open a PR instead.
+# To bypass this hook, set the environment variable BYPASS_PROTECTED_PUSH=1
+
+protected_branch="refs/heads/main"
+
+if [ "${BYPASS_PROTECTED_PUSH}" = "1" ]; then
+  echo "==================================================================="
+  echo "  Bypassing main branch push protection (BYPASS_PROTECTED_PUSH=1)."
+  echo "==================================================================="
+  exit 0
+fi
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "$remote_ref" ] && continue
+  if [ "$remote_ref" = "$protected_branch" ]; then
+    echo "=============================================="
+    echo "  Direct push to main is disabled."
+    echo "  Use a feature branch and open a PR instead."
+    echo "  To bypass, set BYPASS_PROTECTED_PUSH=1."
+    echo "=============================================="
+    exit 1
+  fi
+done
+
+exit 0

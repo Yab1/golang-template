@@ -44,7 +44,7 @@ func loadKafka(envName, appName string) Kafka {
 
 func loadEventing() Eventing {
 	return Eventing{
-		WorkerAddr:   env.GetString("EVENT_WORKER_ADDR", ":8081"),
+		WorkerAddr:   env.GetString("EVENT_WORKER_ADDR", ":8082"),
 		WorkerMode:   env.GetString("EVENT_WORKER_MODE", "all"),
 		ConsumerName: env.GetString("EVENT_CONSUMER_NAME", "event-logger"),
 		BatchSize:    env.GetInt("EVENT_OUTBOX_BATCH_SIZE", 100),

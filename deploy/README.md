@@ -1,8 +1,8 @@
 # Deploy
 
-Blue-green API + worker, Jenkins-ready. Infra (Postgres/Redis/Kafka) stays in [`../infra`](../infra).
+Blue-green API + worker, Jenkins-ready. Infra (Postgres/Redis/Kafka/schema-registry/Mailpit/MinIO) stays in [`../infra`](../infra).
 
-App env keys: root [`.envrc.example`](../.envrc.example). Create **`deploy/.env`** yourself (Compose/`env_file` — no `export`). Same names; inside Docker use hostnames `postgres`, `redis`, `kafka:9093` not `localhost`.
+App env keys: root [`.envrc.example`](../.envrc.example). Create **`deploy/.env`** yourself (Compose/`env_file` — no `export`). Same names; inside Docker use hostnames `postgres`, `redis`, `kafka:9093`, `schema-registry:8081` not `localhost`. Set `EVENT_WORKER_ADDR=:8082` (registry owns `:8081`).
 
 ## Layout
 
@@ -13,9 +13,9 @@ App env keys: root [`.envrc.example`](../.envrc.example). Create **`deploy/.env`
 | `nginx/app-active.conf.template` | Proxy upstream placeholder |
 | `scripts/deploy.sh` | Migrate once → new slot → `/ready` → switch → stop old → worker |
 | `scripts/post.sh` | Terminal POST/seed |
-| `Jenkinsfile` | Checkout → env → deploy → POST |
+| `Jenkinsfile` | Checkout → PRECHECK → env → deploy → POST |
 
-API and worker **never** migrate. Seed **never** runs on API boot.
+API and worker **never** migrate. Seed **never** runs on API boot. Worker `/ready` checks DB + Kafka + schema registry.
 
 ## Host flow
 
@@ -30,4 +30,4 @@ Proxy publishes `APP_PORT` (default 8080) → active slot.
 
 ## Jenkins
 
-Job: `deploy/Jenkinsfile`. Copies `JENKINS_ENV_FILE` → `deploy/.env`, then `deploy.sh` then `post.sh`.
+Job: `deploy/Jenkinsfile`. Agent needs Go + golangci-lint for PRECHECK. Copies `JENKINS_ENV_FILE` → `deploy/.env`, then `deploy.sh` then `post.sh`.

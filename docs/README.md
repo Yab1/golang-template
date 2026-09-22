@@ -16,6 +16,6 @@ Swagger generated into this folder (`docs.go`, `swagger.json`, `swagger.yaml`) b
 
 Related, outside `docs/`:
 
-- [infra/README.md](../infra/README.md) — Postgres, Redis, Kafka compose
+- [infra/README.md](../infra/README.md) — Postgres, Redis, Kafka, schema registry, Mailpit, MinIO
 - [deploy/README.md](../deploy/README.md) — blue-green + Jenkins
 - [CONTRIBUTING.md](../CONTRIBUTING.md) — PRs and new modules

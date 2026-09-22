@@ -11,19 +11,20 @@ Enterprise-style Go HTTP API you clone and rename. Vertical domain modules, JWT 
 
 ```bash
 make install-tools   # swag, air, migrate (postgres), golangci-lint
+make install-hooks   # once: blocks direct push to main
 ```
 
 ## Environment Variables
 
 Copy [`.envrc.example`](.envrc.example) to `.envrc`, fill secrets, then `direnv allow`.
 
-Deploy uses **`deploy/.env`**: same keys, no `export`, Docker DNS (`postgres`, `redis`, `kafka:9093`). You create that file; there is no second example.
+Deploy uses **`deploy/.env`**: same keys, no `export`, Docker DNS (`postgres`, `redis`, `kafka:9093`, `schema-registry:8081`). You create that file; there is no second example. Set `EVENT_WORKER_ADDR=:8082` so it does not collide with the schema registry on `:8081`.
 
 Infra brokers: copy [`infra/.env.example`](infra/.env.example) to `infra/.env`. `REDIS_PW` in the app env must match `REDIS_PASSWORD` there.
 
 ## Quick Start
 
-Commands live in the [Makefile](Makefile).
+Commands live in the [Makefile](Makefile) — run `make help`.
 
 API and worker **do not** run migrations on boot. Seed **never** runs on API boot.
 
@@ -50,7 +51,8 @@ Optional:
 
 ```bash
 make post         # seed admin (SEED_ENABLED=true)
-make worker       # Kafka outbox/inbox (KAFKA_ENABLED=true; make kafka-topics first)
+make kafka-topics && make kafka-schemas
+make worker       # Kafka outbox/inbox (KAFKA_ENABLED=true)
 ```
 
 ### Option B: Run with Docker (deploy stack)
@@ -68,6 +70,8 @@ make deploy-post   # seed last
 
 See **[CONTRIBUTING.md](CONTRIBUTING.md)** for style, new modules, and PRs. Run `make lint` and `make test` before you open a PR.
 
+**CI (GitHub Actions):** On every push and pull request to `main`, the [CI workflow](.github/workflows/ci.yml) runs `make lint` and `make test`. Require this workflow to pass before merging (GitHub branch protection).
+
 ```bash
 make rename MODULE=github.com/acme/myapp
 ```
@@ -83,10 +87,10 @@ Project docs (style, architecture, eventing) live in **[docs/](docs/)**. Start a
 Deployment assets live in **[deploy/](deploy/)**:
 
 - **[Dockerfile](deploy/Dockerfile)** and **[docker-compose.yml](deploy/docker-compose.yml)** for containerized runs
-- **[Jenkinsfile](deploy/Jenkinsfile)** for CI/CD
+- **[Jenkinsfile](deploy/Jenkinsfile)** for CI/CD (PRECHECK → deploy → POST)
 - **[scripts/](deploy/scripts/)** for build and deploy (`deploy.sh`, `post.sh`, `orchestrate.sh`, `config.sh`)
 
-Shared dependencies (Postgres, Redis, Kafka) live in **[infra/](infra/)**. See the [infra README](infra/README.md) and [deploy README](deploy/README.md).
+Shared dependencies (Postgres, Redis, Kafka, Schema Registry, Mailpit, MinIO) live in **[infra/](infra/)**. See the [infra README](infra/README.md) and [deploy README](deploy/README.md).
 
 ## Contact
 

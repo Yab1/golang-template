@@ -29,6 +29,6 @@ COPY cmd/migrate/migrations /app/migrations
 
 USER app
 
-EXPOSE 8080
+EXPOSE 8080 8082
 
 CMD ["/app/api"]

@@ -126,7 +126,8 @@ export KAFKA_PASSWORD=
 export KAFKA_TLS=false
 export KAFKA_SCHEMA_REGISTRY_URL=http://localhost:8081
 export KAFKA_TOPIC_PREFIX=development.golang-template
-export EVENT_WORKER_ADDR=:8081
+# Worker health/metrics (must not collide with schema registry :8081)
+export EVENT_WORKER_ADDR=:8082
 # all | relay | consumer
 export EVENT_WORKER_MODE=all
 export EVENT_CONSUMER_NAME=event-logger
@@ -138,4 +139,3 @@ export EVENT_RETRY_DELAY_1=1m
 export EVENT_RETRY_DELAY_2=10m
 export EVENT_RETRY_DELAY_3=1h
 export EVENT_WORKER_SHUTDOWN_TIMEOUT=30s
-export DB_EXPECTED_SCHEMA_VERSION=6

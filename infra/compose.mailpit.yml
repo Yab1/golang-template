@@ -1,0 +1,19 @@
+services:
+  mailpit:
+    image: axllent/mailpit:${MAILPIT_IMAGE_TAG:-latest}
+    container_name: infra_mailpit
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+    volumes:
+      - mailpit_data:/data
+    networks:
+      - infra
+
+volumes:
+  mailpit_data:
+    name: infra_mailpit_data
+
+networks:
+  infra:

@@ -128,7 +128,7 @@ Generated on insert (`internal/platform/refid`). Unique, retry on collision. Fro
 - `local`: disk under `STORAGE_LOCAL_DIR`, GET `/api/v1/files/{key}`
 - `minio` / `s3`: same S3 client; MinIO uses path-style + `S3_ENDPOINT`
 
-Shared deps live under [`infra/`](../infra/) (`make infra-up`). Point `DB_ADDR`, `REDIS_ADDR` / `REDIS_PW`, `KAFKA_BROKERS` at that stack. Optional MinIO/SMTP still external until added.
+Shared deps live under [`infra/`](../infra/) (`make infra-up`). Point `DB_ADDR`, `REDIS_ADDR` / `REDIS_PW`, `KAFKA_BROKERS`, `KAFKA_SCHEMA_REGISTRY_URL` at that stack. Mailpit and MinIO are in the same compose set.
 
 ### Mail
 
@@ -204,18 +204,18 @@ Release order (`scripts/release.sh`): PRECHECK → BACKUP → DB_MIGRATE → BRO
 
 Blue-green app deploy: [`deploy/`](../deploy/). Proxy on `APP_PORT` → `api_blue` or `api_green`. Jenkins uses `deploy/Jenkinsfile` (deploy, then POST).
 
-Local infra (Postgres, Redis, Kafka, Kafka UI):
+Local infra (Postgres, Redis, Kafka, Schema Registry, Kafka UI, Mailpit, MinIO):
 
 ```bash
 make infra-up          # or: cd infra && make up
 make kafka-topics
-make kafka-schemas     # needs a schema registry (not in infra yet)
+make kafka-schemas     # posts to schema registry on :8081
 make deploy            # migrate + blue-green API + worker
 make deploy-post       # seed last
 ```
 
 
-## Adding a new EMR resource
+## Adding a new domain module
 
 1. Migration: `make migrate-create create_<resource>` then write `up`/`down` SQL.
 2. Module folder: `make new-module name=<resource>` → `model.go`, `store.go`, `handler.go`, `module.go`.

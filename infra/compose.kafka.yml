@@ -33,6 +33,7 @@ services:
       DYNAMIC_CONFIG_ENABLED: "true"
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9093
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
     depends_on:
       kafka:
         condition: service_healthy
