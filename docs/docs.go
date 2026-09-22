@@ -1182,6 +1182,12 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 10000
                 },
+                "metadata": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "tags": {
                     "type": "array",
                     "maxItems": 5,
@@ -1209,6 +1215,15 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "is_visible": {
+                    "type": "boolean"
+                },
+                "metadata": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "reference_id": {
                     "type": "string"
@@ -1242,6 +1257,15 @@ const docTemplate = `{
                 "content": {
                     "type": "string",
                     "maxLength": 10000
+                },
+                "is_visible": {
+                    "type": "boolean"
+                },
+                "metadata": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "tags": {
                     "type": "array",
@@ -1427,6 +1451,15 @@ const docTemplate = `{
                 },
                 "is_active": {
                     "type": "boolean"
+                },
+                "is_visible": {
+                    "type": "boolean"
+                },
+                "metadata": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "reference_id": {
                     "type": "string"

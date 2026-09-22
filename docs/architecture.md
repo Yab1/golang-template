@@ -87,11 +87,11 @@ Config loaders live under `internal/platform/config/` — one file per env secti
 
 API routes accept **access** tokens only. Refresh JWT in `Authorization` → 401.
 
-Need migration `000004_refresh_tokens`.
+Need migration `000002_refresh_tokens`.
 
 ### Email verify + password reset
 
-Need migration `000006_email_verify_password_reset` (`users.is_active`, `user_tokens`).
+Need migration `000003_user_tokens` (`users.is_active`, `user_tokens`).
 
 | Call | What |
 |------|------|
@@ -181,11 +181,12 @@ Success envelope:
 
 ### Soft delete + audit + actor stamps
 
-Need migrations `000007_soft_delete_audit` and `000008_actor_stamps`.
+Migrations: `000001` users (stamps + `metadata` + `is_visible`), `000004_audit_logs`, `000005_create_posts` (sample — delete when forking).
 
-- Posts `DELETE` soft-deletes (`deleted_at` + `deleted_by`). List/get skip deleted rows.
+- Posts `DELETE` soft-deletes (`deleted_at` + `deleted_by`). List skips deleted + `is_visible=false`; get-by-id skips only deleted.
 - Row stamps: `created_by` / `updated_by` / `deleted_by` on posts; `created_by` / `updated_by` on users. Owner field (`user_id`) ≠ actor stamps.
-- When `AUDIT_ENABLED`, mutations append to `audit_logs` (actor, action, resource, request_id, ip, meta) via `audit.Record`. Failure is logged; HTTP still succeeds.
+- `metadata` jsonb default `{}` for arbitrary per-row fields.
+- When `AUDIT_ENABLED`, mutations append to `audit_logs` via `audit.Record`. Failure is logged; HTTP still succeeds.
 - Covered today: post CUD, user register / verify / password change+reset, file upload/delete.
 
 ## Adding a new EMR resource

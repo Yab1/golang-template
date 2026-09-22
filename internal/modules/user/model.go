@@ -1,6 +1,7 @@
 package user
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -8,19 +9,21 @@ import (
 )
 
 type User struct {
-	ID           uuid.UUID  `json:"id"`
-	ReferenceID  string     `json:"reference_id"`
-	Email        string     `json:"email"`
-	Username     string     `json:"username"`
-	Password     password   `json:"-"`
-	IsActive     bool       `json:"is_active"`
-	RoleID       int64      `json:"role_id"`
-	Role         Role       `json:"role"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-	CreatedBy    *uuid.UUID `json:"created_by,omitempty"`
-	UpdatedBy    *uuid.UUID `json:"updated_by,omitempty"`
-	TokenVersion int        `json:"-"`
+	ID           uuid.UUID       `json:"id"`
+	ReferenceID  string          `json:"reference_id"`
+	Email        string          `json:"email"`
+	Username     string          `json:"username"`
+	Password     password        `json:"-"`
+	IsActive     bool            `json:"is_active"`
+	IsVisible    bool            `json:"is_visible"`
+	RoleID       int64           `json:"role_id"`
+	Role         Role            `json:"role"`
+	Metadata     json.RawMessage `json:"metadata"`
+	CreatedAt    time.Time       `json:"created_at"`
+	UpdatedAt    time.Time       `json:"updated_at"`
+	CreatedBy    *uuid.UUID      `json:"created_by,omitempty"`
+	UpdatedBy    *uuid.UUID      `json:"updated_by,omitempty"`
+	TokenVersion int             `json:"-"`
 }
 
 type Role struct {

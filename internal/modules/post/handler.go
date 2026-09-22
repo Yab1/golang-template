@@ -2,6 +2,7 @@ package post
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -22,15 +23,18 @@ type postKey string
 const postCtx postKey = "post"
 
 type CreatePostPayload struct {
-	Title   string   `json:"title" validate:"required,max=255"`
-	Content string   `json:"content" validate:"required,max=10000"`
-	Tags    []string `json:"tags" validate:"omitempty,max=5,dive,max=100"`
+	Title    string          `json:"title" validate:"required,max=255"`
+	Content  string          `json:"content" validate:"required,max=10000"`
+	Tags     []string        `json:"tags" validate:"omitempty,max=5,dive,max=100"`
+	Metadata json.RawMessage `json:"metadata" validate:"omitempty"`
 }
 
 type UpdatePostPayload struct {
-	Title   *string  `json:"title" validate:"omitempty,max=255"`
-	Content *string  `json:"content" validate:"omitempty,max=10000"`
-	Tags    []string `json:"tags" validate:"omitempty,max=5,dive,max=100"`
+	Title     *string         `json:"title" validate:"omitempty,max=255"`
+	Content   *string         `json:"content" validate:"omitempty,max=10000"`
+	Tags      []string        `json:"tags" validate:"omitempty,max=5,dive,max=100"`
+	IsVisible *bool           `json:"is_visible"`
+	Metadata  json.RawMessage `json:"metadata" validate:"omitempty"`
 }
 
 // createPostHandler godoc
@@ -71,6 +75,8 @@ func (m *Module) createPostHandler(w http.ResponseWriter, r *http.Request) {
 		Title:     payload.Title,
 		Content:   payload.Content,
 		Tags:      payload.Tags,
+		IsVisible: true,
+		Metadata:  payload.Metadata,
 		CreatedBy: actor,
 		UpdatedBy: actor,
 	}
@@ -95,7 +101,7 @@ func (m *Module) createPostHandler(w http.ResponseWriter, r *http.Request) {
 // listPostsHandler godoc
 //
 //	@Summary		List posts
-//	@Description	List posts with pagination, sorting, search, and tag filters (public)
+//	@Description	List posts with pagination, sorting, search, and tag filters (public; skips soft-deleted and hidden)
 //	@Tags			posts
 //	@Accept			json
 //	@Produce		json
@@ -203,6 +209,12 @@ func (m *Module) updatePostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if payload.Tags != nil {
 		p.Tags = payload.Tags
+	}
+	if payload.IsVisible != nil {
+		p.IsVisible = *payload.IsVisible
+	}
+	if len(payload.Metadata) > 0 && string(payload.Metadata) != "null" {
+		p.Metadata = payload.Metadata
 	}
 
 	principal := authz.PrincipalFrom(r)

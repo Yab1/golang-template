@@ -25,19 +25,22 @@ cat >"$DIR/model.go" <<EOF
 package ${NAME}
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 type ${TYPE} struct {
-	ID        string     \`json:"id"\`
-	CreatedAt time.Time  \`json:"created_at"\`
-	UpdatedAt time.Time  \`json:"updated_at"\`
-	CreatedBy *uuid.UUID \`json:"created_by,omitempty"\`
-	UpdatedBy *uuid.UUID \`json:"updated_by,omitempty"\`
-	DeletedAt *time.Time \`json:"-"\`
-	DeletedBy *uuid.UUID \`json:"-"\`
+	ID        string          \`json:"id"\`
+	IsVisible bool            \`json:"is_visible"\`
+	Metadata  json.RawMessage \`json:"metadata"\`
+	CreatedAt time.Time       \`json:"created_at"\`
+	UpdatedAt time.Time       \`json:"updated_at"\`
+	CreatedBy *uuid.UUID      \`json:"created_by,omitempty"\`
+	UpdatedBy *uuid.UUID      \`json:"updated_by,omitempty"\`
+	DeletedAt *time.Time      \`json:"-"\`
+	DeletedBy *uuid.UUID      \`json:"-"\`
 }
 EOF
 

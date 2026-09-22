@@ -72,6 +72,10 @@ definitions:
       content:
         maxLength: 10000
         type: string
+      metadata:
+        items:
+          type: integer
+        type: array
       tags:
         items:
           type: string
@@ -94,6 +98,12 @@ definitions:
         type: string
       id:
         type: string
+      is_visible:
+        type: boolean
+      metadata:
+        items:
+          type: integer
+        type: array
       reference_id:
         type: string
       tags:
@@ -116,6 +126,12 @@ definitions:
       content:
         maxLength: 10000
         type: string
+      is_visible:
+        type: boolean
+      metadata:
+        items:
+          type: integer
+        type: array
       tags:
         items:
           type: string
@@ -242,6 +258,12 @@ definitions:
         type: string
       is_active:
         type: boolean
+      is_visible:
+        type: boolean
+      metadata:
+        items:
+          type: integer
+        type: array
       reference_id:
         type: string
       role:

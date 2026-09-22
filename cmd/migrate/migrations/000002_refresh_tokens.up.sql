@@ -10,6 +10,3 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens (user_id);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_jti ON refresh_tokens (jti);
-
-ALTER TABLE users
-  ADD COLUMN IF NOT EXISTS token_version int NOT NULL DEFAULT 1;

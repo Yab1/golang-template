@@ -1,10 +1,4 @@
--- Email verification / account activation + opaque auth tokens (verify + password reset).
-
-ALTER TABLE users
-  ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT false;
-
--- Existing rows (pre-migration) become active so deploys do not lock out users.
-UPDATE users SET is_active = true WHERE is_active = false;
+-- Opaque auth tokens (email verify + password reset).
 
 CREATE TABLE IF NOT EXISTS user_tokens (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

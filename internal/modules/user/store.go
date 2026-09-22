@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"github.com/google/uuid"
@@ -14,9 +15,11 @@ import (
 
 const RefCode = "USR"
 
+var emptyMeta = json.RawMessage(`{}`)
+
 const userColumns = `
 	u.id, u.reference_id, u.email, u.username, u.password, COALESCE(u.is_active, false),
-	u.role_id, u.created_at, u.updated_at, u.created_by, u.updated_by,
+	u.is_visible, u.metadata, u.role_id, u.created_at, u.updated_at, u.created_by, u.updated_by,
 	COALESCE(u.token_version, 1),
 	r.id, r.name, r.level, COALESCE(r.description, '')
 `
@@ -30,9 +33,16 @@ func NewStore(db *pgxpool.Pool, refs *refid.Generator) *Store {
 	return &Store{db: db, refs: refs}
 }
 
+func metaOrEmpty(m json.RawMessage) json.RawMessage {
+	if len(m) == 0 || string(m) == "null" {
+		return emptyMeta
+	}
+	return m
+}
+
 func (s *Store) Create(ctx context.Context, u *User) error {
 	query := `
-		INSERT INTO users (email, username, password, role_id, reference_id, is_active, created_by, updated_by)
+		INSERT INTO users (email, username, password, role_id, reference_id, is_active, is_visible, metadata, created_by, updated_by)
 		VALUES (
 			$1,
 			$2,
@@ -41,15 +51,18 @@ func (s *Store) Create(ctx context.Context, u *User) error {
 			$5,
 			$6,
 			$7,
-			$8
+			$8,
+			$9,
+			$10
 		)
-		RETURNING id, role_id, created_at, updated_at, created_by, updated_by
+		RETURNING id, role_id, created_at, updated_at, created_by, updated_by, is_visible, metadata
 	`
 
 	roleName := u.Role.Name
 	if roleName == "" {
 		roleName = "user"
 	}
+	u.Metadata = metaOrEmpty(u.Metadata)
 
 	var lastErr error
 	for i := 0; i < refid.MaxTries(); i++ {
@@ -69,6 +82,8 @@ func (s *Store) Create(ctx context.Context, u *User) error {
 			roleName,
 			u.ReferenceID,
 			u.IsActive,
+			u.IsVisible,
+			u.Metadata,
 			u.CreatedBy,
 			u.UpdatedBy,
 		).Scan(
@@ -78,9 +93,12 @@ func (s *Store) Create(ctx context.Context, u *User) error {
 			&u.UpdatedAt,
 			&u.CreatedBy,
 			&u.UpdatedBy,
+			&u.IsVisible,
+			&u.Metadata,
 		)
 		cancel()
 		if err == nil {
+			u.Metadata = metaOrEmpty(u.Metadata)
 			if u.CreatedBy == nil || u.UpdatedBy == nil {
 				if err := s.stampSelf(ctx, u.ID); err != nil {
 					return err
@@ -106,7 +124,6 @@ func (s *Store) Create(ctx context.Context, u *User) error {
 	return storage.MapError(lastErr)
 }
 
-// stampSelf sets created_by/updated_by to the user id after self-registration.
 func (s *Store) stampSelf(ctx context.Context, id uuid.UUID) error {
 	query := `
 		UPDATE users
@@ -151,6 +168,8 @@ func (s *Store) getUser(ctx context.Context, query string, arg any) (*User, erro
 		&u.Username,
 		&u.Password.hash,
 		&u.IsActive,
+		&u.IsVisible,
+		&u.Metadata,
 		&u.RoleID,
 		&u.CreatedAt,
 		&u.UpdatedAt,
@@ -168,6 +187,7 @@ func (s *Store) getUser(ctx context.Context, query string, arg any) (*User, erro
 		}
 		return nil, err
 	}
+	u.Metadata = metaOrEmpty(u.Metadata)
 
 	return &u, nil
 }

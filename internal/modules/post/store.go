@@ -2,6 +2,7 @@ package post
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -18,8 +19,11 @@ import (
 const RefCode = "PST"
 
 const activePosts = "deleted_at IS NULL"
+const visiblePosts = activePosts + " AND is_visible"
 
-const postColumns = `id, reference_id, user_id, title, content, tags, version, created_at, updated_at, created_by, updated_by, deleted_at, deleted_by`
+var emptyMeta = json.RawMessage(`{}`)
+
+const postColumns = `id, reference_id, user_id, title, content, tags, version, is_visible, metadata, created_at, updated_at, created_by, updated_by, deleted_at, deleted_by`
 
 type Store struct {
 	db   *pgxpool.Pool
@@ -28,6 +32,13 @@ type Store struct {
 
 func NewStore(db *pgxpool.Pool, refs *refid.Generator) *Store {
 	return &Store{db: db, refs: refs}
+}
+
+func metaOrEmpty(m json.RawMessage) json.RawMessage {
+	if len(m) == 0 || string(m) == "null" {
+		return emptyMeta
+	}
+	return m
 }
 
 func scanPost(sc interface{ Scan(dest ...any) error }, p *Post) error {
@@ -39,6 +50,8 @@ func scanPost(sc interface{ Scan(dest ...any) error }, p *Post) error {
 		&p.Content,
 		&p.Tags,
 		&p.Version,
+		&p.IsVisible,
+		&p.Metadata,
 		&p.CreatedAt,
 		&p.UpdatedAt,
 		&p.CreatedBy,
@@ -52,18 +65,20 @@ func scanPost(sc interface{ Scan(dest ...any) error }, p *Post) error {
 	if p.Tags == nil {
 		p.Tags = []string{}
 	}
+	p.Metadata = metaOrEmpty(p.Metadata)
 	return nil
 }
 
 func (s *Store) Create(ctx context.Context, p *Post) error {
 	q := `
-		INSERT INTO posts (user_id, title, content, tags, reference_id, created_by, updated_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO posts (user_id, title, content, tags, reference_id, is_visible, metadata, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING ` + postColumns
 
 	if p.Tags == nil {
 		p.Tags = []string{}
 	}
+	p.Metadata = metaOrEmpty(p.Metadata)
 
 	var lastErr error
 	for i := 0; i < refid.MaxTries(); i++ {
@@ -82,6 +97,8 @@ func (s *Store) Create(ctx context.Context, p *Post) error {
 			p.Content,
 			p.Tags,
 			p.ReferenceID,
+			p.IsVisible,
+			p.Metadata,
 			p.CreatedBy,
 			p.UpdatedBy,
 		), p)
@@ -139,11 +156,13 @@ func (s *Store) Update(ctx context.Context, p *Post) error {
 		SET title = $1,
 		    content = $2,
 		    tags = $3,
+		    is_visible = $4,
+		    metadata = $5,
 		    version = version + 1,
 		    updated_at = NOW(),
-		    updated_by = $6
-		WHERE id = $4 AND version = $5 AND ` + activePosts + `
-		RETURNING version, updated_at, updated_by, deleted_at, deleted_by
+		    updated_by = $8
+		WHERE id = $6 AND version = $7 AND ` + activePosts + `
+		RETURNING version, is_visible, metadata, updated_at, updated_by, deleted_at, deleted_by
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, storage.QueryTimeoutDuration)
@@ -152,6 +171,7 @@ func (s *Store) Update(ctx context.Context, p *Post) error {
 	if p.Tags == nil {
 		p.Tags = []string{}
 	}
+	p.Metadata = metaOrEmpty(p.Metadata)
 
 	err := s.db.QueryRow(
 		ctx,
@@ -159,11 +179,15 @@ func (s *Store) Update(ctx context.Context, p *Post) error {
 		p.Title,
 		p.Content,
 		p.Tags,
+		p.IsVisible,
+		p.Metadata,
 		p.ID,
 		p.Version,
 		p.UpdatedBy,
 	).Scan(
 		&p.Version,
+		&p.IsVisible,
+		&p.Metadata,
 		&p.UpdatedAt,
 		&p.UpdatedBy,
 		&p.DeletedAt,
@@ -175,6 +199,7 @@ func (s *Store) Update(ctx context.Context, p *Post) error {
 		}
 		return err
 	}
+	p.Metadata = metaOrEmpty(p.Metadata)
 
 	return nil
 }
@@ -212,7 +237,7 @@ func (s *Store) List(ctx context.Context, q ListQuery) (*query.ListResult[*Post]
 	ctx, cancel := context.WithTimeout(ctx, storage.QueryTimeoutDuration)
 	defer cancel()
 
-	where := []string{activePosts}
+	where := []string{visiblePosts}
 	args := []any{}
 	argN := 1
 

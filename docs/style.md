@@ -79,13 +79,15 @@ Companion:
 
 - Request bodies stay in **handler** (`CreateXPayload`) — never on the model.
 - Soft-delete resources: `DeletedAt *time.Time \`json:"-"\`` + `DeletedBy *uuid.UUID \`json:"-"\`` + filter `deleted_at IS NULL` in store.
+- Visibility: `IsVisible bool` — list filters `is_visible`; get-by-id still returns hidden rows so owners can unhide.
+- Extensible bag: `Metadata json.RawMessage` (DB `jsonb`, default `{}`).
 - Actor stamps: `CreatedBy` / `UpdatedBy` public (`omitempty`); set from `authz.Principal` via `stamp.Ptr` in handlers. Owner (`UserID`) stays separate.
 - Audit trail: call `audit.Record` after successful mutations (do not fail the request on audit error).
 - Code review: “new column? migration + model + store Scan?”
 
 Break the rule for join-heavy read models / FHIR wire shapes (`fhir_mapping.go`). Core CRUD entity stays full-row.
 
-Example: `post.Post` includes `DeletedAt`/`DeletedBy` with `json:"-"`; active queries still filter soft-deleted rows.
+Example: `post.Post` includes `DeletedAt`/`DeletedBy` with `json:"-"`; list filters soft-deleted + hidden rows.
 
 ### Boundaries
 

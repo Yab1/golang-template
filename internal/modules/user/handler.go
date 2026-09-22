@@ -46,9 +46,10 @@ func (m *Module) createUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	u := &User{
-		Email:    payload.Email,
-		Username: payload.Username,
-		IsActive: !m.verifyRequired,
+		Email:     payload.Email,
+		Username:  payload.Username,
+		IsActive:  !m.verifyRequired,
+		IsVisible: true,
 		Role: Role{
 			Name: "user",
 		},

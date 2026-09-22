@@ -1,15 +1,4 @@
--- Soft delete on posts + append-only audit log.
-
-ALTER TABLE posts
-  ADD COLUMN IF NOT EXISTS deleted_at timestamp(0) with time zone;
-
-CREATE INDEX IF NOT EXISTS idx_posts_not_deleted
-  ON posts (created_at DESC)
-  WHERE deleted_at IS NULL;
-
-CREATE INDEX IF NOT EXISTS idx_posts_created_id_active
-  ON posts (created_at DESC, id DESC)
-  WHERE deleted_at IS NULL;
+-- Append-only audit trail for mutations.
 
 CREATE TABLE IF NOT EXISTS audit_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
