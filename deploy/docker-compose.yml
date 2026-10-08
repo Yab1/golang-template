@@ -60,11 +60,10 @@ services:
     <<: *app
     container_name: golang_template_migrate
     restart: "no"
+    # DB_ADDR from env_file (container). Must end with `up` or migrate prints usage + exit 2.
+    entrypoint: ["/bin/sh", "-c"]
     command:
-      - /app/migrate
-      - -path=/app/migrations
-      - -database
-      - ${DB_ADDR}
+      - exec /app/migrate -path=/app/migrations -database "$$DB_ADDR" up
     profiles:
       - tools
 

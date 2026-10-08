@@ -1,17 +1,16 @@
 pipeline {
     agent any
 
+    // Job SCM already fetched this Jenkinsfile. One checkout of the build
+    // branch is enough. Lint and test run in .github/workflows/ci.yml.
+    options {
+        skipDefaultCheckout(true)
+    }
+
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
-            }
-        }
-
-        stage('PRECHECK') {
-            steps {
-                sh 'go test ./...'
-                sh 'golangci-lint run ./...'
             }
         }
 

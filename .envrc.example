@@ -24,15 +24,15 @@ export TRUSTED_PROXIES=
 
 # --- swagger ---
 export SWAGGER_ENABLED=true
-export SWAGGER_TITLE=Golang Template API
-export SWAGGER_DESCRIPTION=REST API template: auth (access+refresh), RBAC, posts, files, mail, rate limiting, reference ids.
+export SWAGGER_TITLE="Golang Template API"
+export SWAGGER_DESCRIPTION="REST API template: auth (access+refresh), RBAC, posts, files, mail, rate limiting, reference ids."
 export SWAGGER_VERSION=0.0.1
 export SWAGGER_TOS=https://www.google.com/policies/terms/
 export SWAGGER_CONTACT_NAME=Yeabsera
 export SWAGGER_CONTACT_EMAIL=yeabsera.dev@gmail.com
 export SWAGGER_CONTACT_URL=https://yeabsera-dev.vercel.app/
 export SWAGGER_EXTERNAL_DOCS_URL=https://yeabsera-dev.vercel.app/
-export SWAGGER_EXTERNAL_DOCS_DESC=External documentation
+export SWAGGER_EXTERNAL_DOCS_DESC="External documentation"
 
 # --- database ---
 export DB_ADDR=postgres://admin:password@localhost:5432/golang_template?sslmode=disable

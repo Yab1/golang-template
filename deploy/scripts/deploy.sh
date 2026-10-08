@@ -1,6 +1,7 @@
 #!/bin/bash
 # Blue-green API deploy. New slot healthy before traffic switches; old slot stops after.
-# Migrations run once as a one-shot container. API/worker never migrate.
+# Migrations run once as a one-shot container, skipped when the database is already
+# at the latest *.up.sql version and not dirty. API/worker never migrate.
 # POST/seed is a separate script (deploy/scripts/post.sh) so it stays last.
 
 set -euo pipefail
@@ -125,13 +126,125 @@ ensure_worker() {
     docker_compose -f "$COMPOSE_FILE" "${compose_env_args[@]}" up -d --no-deps --force-recreate golang_template_worker
 }
 
+latest_up_version() {
+    local files=("$PROJECT_DIR"/cmd/migrate/migrations/*.up.sql)
+    local latest=0 found=0 f base ver
+    if [[ ! -e "${files[0]}" ]]; then
+        return 1
+    fi
+    for f in "${files[@]}"; do
+        found=1
+        base="${f##*/}"
+        ver="${base%%_*}"
+        if [[ ! "$ver" =~ ^[0-9]+$ ]]; then
+            continue
+        fi
+        ver=$((10#$ver))
+        if (( ver > latest )); then
+            latest=$ver
+        fi
+    done
+    if (( found == 0 )); then
+        return 1
+    fi
+    printf '%s\n' "$latest"
+}
+
+# postgres://user:pass@host:port/db?...  → user and db only. Password stays in the URL.
+parse_db_addr() {
+    local raw="${DB_ADDR:-}" url
+    url="${raw#postgres://}"
+    url="${url#postgresql://}"
+    if [[ -z "$raw" || "$url" == "$raw" || "$url" != *@*/* ]]; then
+        return 1
+    fi
+    local userinfo="${url%%@*}"
+    DB_USER="${userinfo%%:*}"
+    local hostpath="${url#*@}"
+    hostpath="${hostpath%%\?*}"
+    DB_NAME="${hostpath#*/}"
+    [[ -n "$DB_USER" && -n "$DB_NAME" ]]
+}
+
+# 0 when infra_postgres schema_migrations matches the newest migration file and is clean.
+# Any doubt (no container, no table, dirty, behind) returns 1 so migrate still runs.
+migration_is_current() {
+    local latest db_out version dirty
+    latest=$(latest_up_version) || return 1
+    parse_db_addr || return 1
+
+    local postgres_container="${POSTGRES_CONTAINER:-infra_postgres}"
+    if ! db_out=$(docker exec "$postgres_container" \
+        psql -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME" -tAc \
+        "SELECT version::text, dirty::text FROM schema_migrations" 2>/dev/null); then
+        return 1
+    fi
+    version="${db_out%%|*}"
+    dirty="${db_out#*|}"
+    version="${version//[[:space:]]/}"
+    dirty="${dirty//[[:space:]]/}"
+    if [[ -z "$version" || ! "$version" =~ ^[0-9]+$ ]]; then
+        return 1
+    fi
+    if [[ "$dirty" != "f" && "$dirty" != "false" ]]; then
+        return 1
+    fi
+    [[ "$version" == "$latest" ]]
+}
+
 run_migrate() {
     if [[ "$SKIP_MIGRATE" == "true" ]]; then
         log_info "Skipping migrate (--skip-migrate)"
         return 0
     fi
+    if migration_is_current; then
+        log_info "Database schema already at latest migration; skipping migrate container"
+        return 0
+    fi
     log_info "Running one-shot migrate (API/worker never migrate)..."
     docker_compose -f "$COMPOSE_FILE" "${compose_env_args[@]}" --profile tools run --rm --no-deps golang_template_migrate
+}
+
+# After a healthy deploy, drop golang_template:<gitsha> tags that no golang_template
+# container still uses. Keeps :latest, the commit just built, and the image
+# on the running slot and the stopped slot.
+# Does not run `docker image prune` or `docker builder prune`. Those are
+# daemon-wide and would delete other jobs' images and this build cache.
+prune_old_release_tags() {
+    local repo="${IMAGE_NAME%:*}"
+    if [[ -z "$repo" || "$repo" == "$IMAGE_NAME" ]]; then
+        return 0
+    fi
+
+    local -A keep_ids=()
+    local id name tag img_id
+    local -a containers=(
+        golang_template_api_blue
+        golang_template_api_green
+        golang_template_worker
+        golang_template_migrate
+        golang_template_post
+    )
+
+    id=$(docker image inspect -f '{{.Id}}' "${repo}:latest" 2>/dev/null || true)
+    [[ -n "$id" ]] && keep_ids["$id"]=1
+
+    if [[ -n "${CURRENT_COMMIT:-}" && "$CURRENT_COMMIT" != "unknown" ]]; then
+        id=$(docker image inspect -f '{{.Id}}' "${repo}:${CURRENT_COMMIT}" 2>/dev/null || true)
+        [[ -n "$id" ]] && keep_ids["$id"]=1
+    fi
+
+    for name in "${containers[@]}"; do
+        id=$(docker inspect -f '{{.Image}}' "$name" 2>/dev/null || true)
+        [[ -n "$id" ]] && keep_ids["$id"]=1
+    done
+
+    while IFS=' ' read -r tag img_id; do
+        [[ "$tag" =~ ^[0-9a-f]{40}$ ]] || continue
+        [[ -n "${keep_ids[$img_id]:-}" ]] && continue
+        log_info "Removing old ${repo}:${tag}"
+        docker rmi "${repo}:${tag}" >/dev/null || log_info "Kept ${repo}:${tag}"
+    done < <(docker images "$repo" --no-trunc --format '{{.Tag}} {{.ID}}' 2>/dev/null || true)
 }
 
 wait_proxy_healthy() {
@@ -230,7 +343,6 @@ deploy() {
     if [ "$CURRENT_COMMIT" != "unknown" ]; then
         docker tag "$IMAGE_NAME" "${IMAGE_NAME%:latest}:${CURRENT_COMMIT}" 2>/dev/null || true
     fi
-    docker image prune -f || true
 
     run_migrate
 
@@ -251,6 +363,7 @@ deploy() {
         fi
         echo "blue" >"$ACTIVE_SLOT_FILE"
         ensure_worker
+        prune_old_release_tags
         docker_compose -f "$COMPOSE_FILE" "${compose_env_args[@]}" ps
         log_success "Cold deploy complete (proxy -> blue)"
         return 0
@@ -284,6 +397,7 @@ deploy() {
 
     echo "$new_slot" >"$ACTIVE_SLOT_FILE"
     ensure_worker
+    prune_old_release_tags
     docker_compose -f "$COMPOSE_FILE" "${compose_env_args[@]}" ps
     log_success "Deploy complete; active=${new_slot}"
 }

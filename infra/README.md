@@ -12,7 +12,7 @@ Third-party services for this template. App code stays under `cmd/` / `internal/
 | `compose.kafka.yml` | Kafka + Kafka UI |
 | `compose.schema-registry.yml` | Confluent Schema Registry |
 | `compose.mailpit.yml` | Mailpit (SMTP + UI) |
-| `compose.minio.yml` | MinIO + bucket init |
+| `compose.minio.yml` | MinIO (create bucket in console) |
 | `.env.example` | Defaults (copy to `.env`) |
 
 Secrets / roles via `env_file` + `.env` (Postgres, Redis, MinIO). Kafka / schema-registry broker settings stay in compose `environment:` (no secrets).
@@ -46,4 +46,4 @@ App `.envrc` tips:
 - `KAFKA_SCHEMA_REGISTRY_URL=http://localhost:8081`
 - `EVENT_WORKER_ADDR=:8082` (must not share 8081 with the registry)
 - SMTP: `MAIL_DRIVER=smtp`, `SMTP_HOST=localhost`, `SMTP_PORT=1025`
-- MinIO: `STORAGE_DRIVER=minio`, `S3_ENDPOINT=localhost:9000`, `S3_ACCESS_KEY` / `S3_SECRET_KEY` match `MINIO_ROOT_*`, `S3_BUCKET=uploads`
+- MinIO: `STORAGE_DRIVER=minio`, `S3_ENDPOINT=localhost:9000`, `S3_ACCESS_KEY` / `S3_SECRET_KEY` match `MINIO_ROOT_*`, `S3_BUCKET=uploads` (create that bucket in the console once)

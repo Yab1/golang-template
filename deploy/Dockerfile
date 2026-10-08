@@ -1,18 +1,26 @@
+# syntax=docker/dockerfile:1
+
+# migrate does not depend on app source, so this stage stays cached
+# until the pin or the Go base image changes.
+FROM golang:1.26-bookworm AS migrate
+ENV CGO_ENABLED=0
+RUN go install -tags postgres github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1
+
 FROM golang:1.26-bookworm AS builder
 
 WORKDIR /src
 
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
 COPY . .
 
 ENV CGO_ENABLED=0
-RUN go build -trimpath -ldflags="-s -w" -o /out/api ./cmd/api \
- && go build -trimpath -ldflags="-s -w" -o /out/worker ./cmd/worker \
- && go build -trimpath -ldflags="-s -w" -o /out/post ./cmd/post \
- && go install -tags postgres github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1 \
- && cp /go/bin/migrate /out/migrate
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    mkdir -p /out \
+ && go build -trimpath -ldflags="-s -w" -o /out/ ./cmd/api ./cmd/worker ./cmd/post
 
 FROM alpine:3.21
 
@@ -24,7 +32,7 @@ WORKDIR /app
 COPY --from=builder /out/api /app/api
 COPY --from=builder /out/worker /app/worker
 COPY --from=builder /out/post /app/post
-COPY --from=builder /out/migrate /app/migrate
+COPY --from=migrate /go/bin/migrate /app/migrate
 COPY cmd/migrate/migrations /app/migrations
 
 USER app
