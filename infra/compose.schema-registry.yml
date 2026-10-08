@@ -1,5 +1,6 @@
 services:
   schema-registry:
+    profiles: ["eventing"]
     image: confluentinc/cp-schema-registry:${SCHEMA_REGISTRY_IMAGE_TAG:-7.6.1}
     container_name: infra_schema_registry
     restart: unless-stopped

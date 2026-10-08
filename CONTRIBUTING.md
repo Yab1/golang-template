@@ -28,7 +28,7 @@ make migrate-up
 make lint
 ```
 
-Infra: `make infra-up` (Postgres, Redis, Kafka, schema registry, Mailpit, MinIO under `infra/`). Eventing: `make kafka-topics && make kafka-schemas`. Worker: `make worker` (`EVENT_WORKER_ADDR=:8082`). Terminal POST/seed: `make post` (or `make deploy-post` after Docker deploy). Never seed from API boot. Blue-green: `make deploy` then `make deploy-post`. Jenkins: `deploy/Jenkinsfile` (PRECHECK → deploy → POST).
+Infra: `make infra-up` (Postgres, Redis, Mailpit, MinIO). Kafka stack: `make infra-up-eventing` then `make kafka-topics && make kafka-schemas`. Worker: `make worker` (`EVENT_WORKER_ADDR=:8082`). Terminal POST/seed: `make post` (or `make deploy-post` after Docker deploy). Never seed from API boot. Blue-green: `make deploy` then `make deploy-post`. Jenkins: `infra/Jenkinsfile` (deps) then `deploy/Jenkinsfile` (app).
 
 Checklist: new DB column → migration + model field + store Scan. New event → schema + example + outbox enqueue in the domain transaction.
 

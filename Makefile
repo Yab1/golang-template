@@ -27,15 +27,19 @@ post: ## Run terminal POST/seed on the host
 	@go run ./cmd/post
 
 .PHONY: infra-up
-infra-up: ## Start infra stack (postgres redis kafka registry mailpit minio)
+infra-up: ## Start core infra (postgres redis mailpit minio)
 	@$(MAKE) -C infra up
+
+.PHONY: infra-up-eventing
+infra-up-eventing: ## Start core infra + Kafka + schema-registry
+	@$(MAKE) -C infra up-eventing
 
 .PHONY: infra-down
 infra-down: ## Stop infra stack
 	@$(MAKE) -C infra down
 
 .PHONY: kafka-up
-kafka-up: infra-up ## Alias for infra-up
+kafka-up: infra-up-eventing ## Alias for infra-up-eventing
 
 .PHONY: kafka-down
 kafka-down: infra-down ## Alias for infra-down

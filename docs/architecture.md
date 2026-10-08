@@ -135,7 +135,7 @@ Generated on insert (`internal/platform/refid`). Unique, retry on collision. Fro
 - `local`: disk under `STORAGE_LOCAL_DIR`, GET `/api/v1/files/{key}`
 - `minio` / `s3`: same S3 client; MinIO uses path-style + `S3_ENDPOINT`
 
-Shared deps live under [`infra/`](../infra/) (`make infra-up`). Point `DB_ADDR`, `REDIS_ADDR` / `REDIS_PW`, `KAFKA_BROKERS`, `KAFKA_SCHEMA_REGISTRY_URL` at that stack. Mailpit and MinIO are in the same compose set.
+Shared deps live under [`infra/`](../infra/) (`make infra-up` = core; `make infra-up-eventing` = + Kafka/registry). Point `DB_ADDR`, `REDIS_ADDR` / `REDIS_PW`, and when eventing is on `KAFKA_BROKERS` / `KAFKA_SCHEMA_REGISTRY_URL`, at that stack.
 
 ### Mail
 
@@ -214,7 +214,7 @@ Blue-green app deploy: [`deploy/`](../deploy/). Proxy on `APP_PORT` → `api_blu
 Local infra (Postgres, Redis, Kafka, Schema Registry, Kafka UI, Mailpit, MinIO):
 
 ```bash
-make infra-up          # or: cd infra && make up
+make infra-up          # core deps; make infra-up-eventing for Kafka
 make kafka-topics
 make kafka-schemas     # posts to schema registry on :8081
 make deploy            # migrate + blue-green API + worker

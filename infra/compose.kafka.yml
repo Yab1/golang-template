@@ -1,5 +1,6 @@
 services:
   kafka:
+    profiles: ["eventing"]
     image: apache/kafka-native:${KAFKA_IMAGE_TAG:-latest}
     container_name: infra_kafka
     restart: unless-stopped
@@ -24,6 +25,7 @@ services:
       - infra
 
   kafka-ui:
+    profiles: ["eventing"]
     image: kafbat/kafka-ui:${KAFKA_UI_IMAGE_TAG:-main}
     container_name: infra_kafka_ui
     restart: unless-stopped

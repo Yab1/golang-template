@@ -1,0 +1,131 @@
+pipeline {
+    agent any
+
+    parameters {
+        booleanParam(
+            name: 'WITH_EVENTING',
+            defaultValue: false,
+            description: 'Also start Kafka, Kafka UI, and Schema Registry (make up-eventing)'
+        )
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        // Compose services require infra/.env (env_file: .env) — prepare before PRECHECK.
+        stage('Prepare Environment') {
+            steps {
+                script {
+                    def configScript = """
+                        bash -c 'source infra/scripts/config.sh && \
+                        echo "PROJECT_NAME=\${PROJECT_NAME}" && \
+                        echo "JENKINS_ENV_FILE=\${JENKINS_ENV_FILE}"'
+                    """
+                    def configOutput = sh(script: configScript, returnStdout: true).trim()
+
+                    def config = [:]
+                    configOutput.split('\n').each { line ->
+                        def parts = line.split('=', 2)
+                        if (parts.length == 2) {
+                            config[parts[0]] = parts[1]
+                        }
+                    }
+
+                    def ENV_FILE = config['JENKINS_ENV_FILE']
+
+                    echo "[INFO] Preparing infra environment..."
+
+                    if (fileExists(ENV_FILE)) {
+                        sh "cp ${ENV_FILE} infra/.env"
+                        echo "[SUCCESS] Environment file copied to infra/.env"
+                    } else {
+                        error("[ERROR] Environment file not found: ${ENV_FILE}. Create it on the agent (keys from infra/.env.example).")
+                    }
+                }
+            }
+        }
+
+        stage('PRECHECK') {
+            steps {
+                dir('infra') {
+                    sh '''
+                        test -f .env.example
+                        test -f .env
+                        test -f Makefile
+                        docker compose \
+                          -f compose.yml \
+                          -f compose.postgres.yml \
+                          -f compose.redis.yml \
+                          -f compose.kafka.yml \
+                          -f compose.schema-registry.yml \
+                          -f compose.mailpit.yml \
+                          -f compose.minio.yml \
+                          --env-file .env \
+                          config >/dev/null
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                script {
+                    def eventingFlag = params.WITH_EVENTING ? '--eventing' : ''
+                    sh "./infra/scripts/deploy.sh ${eventingFlag}".trim()
+                }
+            }
+        }
+
+        stage('POST') {
+            steps {
+                dir('infra') {
+                    sh 'make ps'
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                def eventing = params.WITH_EVENTING ? 'core+eventing' : 'core'
+                def message = """
+                    Infra deployment successful (${eventing})
+                    Job: ${env.JOB_NAME}
+                    Build: #${env.BUILD_NUMBER}
+                    Branch: ${env.GIT_BRANCH ?: 'N/A'}
+                    Commit: ${env.GIT_COMMIT ? env.GIT_COMMIT.take(7) : 'N/A'}
+                    Duration: ${currentBuild.durationString.replace(' and counting', '')}
+                """.stripIndent()
+
+                echo message
+            }
+        }
+
+        failure {
+            script {
+                def message = """
+                    Infra deployment failed
+                    Job: ${env.JOB_NAME}
+                    Build: #${env.BUILD_NUMBER}
+                    Branch: ${env.GIT_BRANCH ?: 'N/A'}
+                    Commit: ${env.GIT_COMMIT ? env.GIT_COMMIT.take(7) : 'N/A'}
+                    Duration: ${currentBuild.durationString.replace(' and counting', '')}
+                    Console: ${env.BUILD_URL}console
+                """.stripIndent()
+
+                echo message
+            }
+        }
+
+        always {
+            script {
+                echo "[INFO] Infra pipeline completed"
+            }
+        }
+    }
+}
