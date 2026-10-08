@@ -22,9 +22,9 @@ run: ## Run API with air
 worker: ## Run Kafka event worker
 	@go run ./cmd/worker
 
-.PHONY: post
-post: ## Run terminal POST/seed on the host
-	@go run ./cmd/post
+.PHONY: seed
+seed: ## Run seed (admin / terminal stage)
+	@go run ./cmd/seed
 
 .PHONY: infra-up
 infra-up: ## Start core infra (postgres redis mailpit minio)
@@ -65,9 +65,9 @@ release: ## Full release pipeline (POST last)
 deploy: ## Blue-green deploy API (+ worker if Kafka on)
 	@./deploy/scripts/deploy.sh
 
-.PHONY: deploy-post
-deploy-post: ## Seed in Docker (after deploy)
-	@./deploy/scripts/post.sh
+.PHONY: deploy-seed
+deploy-seed: ## Seed in Docker (after deploy)
+	@./deploy/scripts/seed.sh
 
 .PHONY: deploy-status
 deploy-status: ## Show blue-green deploy status

@@ -57,7 +57,7 @@ export AUTH_RESET_TOKEN_EXP=1h
 export AUTH_DEV_TOKEN=dev-token
 export AUTH_DEV_USER_ID=
 
-# --- seed (idempotent admin via POST stage: make post / scripts/release.sh) ---
+# --- seed (idempotent admin via seed stage: make seed / scripts/release.sh) ---
 export SEED_ENABLED=false
 export SEED_ADMIN_EMAIL=admin@localhost
 export SEED_ADMIN_USERNAME=admin

@@ -66,7 +66,7 @@ pipeline {
         stage('POST') {
             steps {
                 script {
-                    sh './deploy/scripts/post.sh'
+                    sh './deploy/scripts/seed.sh'
                 }
             }
         }

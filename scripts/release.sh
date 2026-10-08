@@ -17,4 +17,4 @@ run_step DEPLOY_API "${DEPLOY_API_CMD:-./deploy/scripts/deploy.sh --skip-migrate
 run_step DEPLOY_WORKER "${DEPLOY_WORKER_CMD:-:}"
 run_step VERIFY "${VERIFY_CMD:-:}"
 run_step ENABLE "${ENABLE_CMD:-:}"
-run_step POST "${POST_CMD:-./deploy/scripts/post.sh}"
+run_step SEED "${SEED_CMD:-./deploy/scripts/seed.sh}"

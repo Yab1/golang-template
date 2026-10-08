@@ -1,4 +1,4 @@
-.PHONY: start stop restart status deploy post
+.PHONY: start stop restart status deploy seed
 
 start:
 	@./deploy/scripts/orchestrate.sh start
@@ -15,5 +15,5 @@ status:
 deploy:
 	@./deploy/scripts/deploy.sh
 
-post:
-	@./deploy/scripts/post.sh
+seed:
+	@./deploy/scripts/seed.sh

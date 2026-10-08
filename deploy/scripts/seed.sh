@@ -1,5 +1,5 @@
 #!/bin/bash
-# Terminal POST stage: idempotent seed / post-deploy hooks. Never runs migrations.
+# Terminal seed stage: idempotent seed / post-deploy hooks. Never runs migrations.
 
 set -euo pipefail
 
@@ -15,4 +15,4 @@ export DOCKER_BUILD_CONTEXT="$PROJECT_DIR"
 export IMAGE_NAME="${IMAGE_NAME:-golang_template:latest}"
 
 cd "$PROJECT_DIR"
-docker compose -f "$COMPOSE_FILE" "${compose_env_args[@]}" --profile tools run --rm --no-deps golang_template_post
+docker compose -f "$COMPOSE_FILE" "${compose_env_args[@]}" --profile tools run --rm --no-deps golang_template_seed

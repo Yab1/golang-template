@@ -67,11 +67,11 @@ services:
     profiles:
       - tools
 
-  golang_template_post:
+  golang_template_seed:
     <<: *app
-    container_name: golang_template_post
+    container_name: golang_template_seed
     restart: "no"
-    command: ["/app/post"]
+    command: ["/app/seed"]
     profiles:
       - tools
 

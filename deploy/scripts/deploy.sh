@@ -2,7 +2,7 @@
 # Blue-green API deploy. New slot healthy before traffic switches; old slot stops after.
 # Migrations run once as a one-shot container, skipped when the database is already
 # at the latest *.up.sql version and not dirty. API/worker never migrate.
-# POST/seed is a separate script (deploy/scripts/post.sh) so it stays last.
+# Seed is a separate script (deploy/scripts/seed.sh) so it stays last.
 
 set -euo pipefail
 
@@ -223,7 +223,7 @@ prune_old_release_tags() {
         golang_template_api_green
         golang_template_worker
         golang_template_migrate
-        golang_template_post
+        golang_template_seed
     )
 
     id=$(docker image inspect -f '{{.Id}}' "${repo}:latest" 2>/dev/null || true)

@@ -5,7 +5,7 @@ Go layout follows [Organizing a Go module](https://go.dev/doc/modules/layout) an
 ```
 cmd/api                 HTTP process: bootstrap, mount, health
 cmd/worker              Kafka relay + consumers
-cmd/post                terminal POST stage (seed)
+cmd/seed                terminal seed stage
 cmd/replay              DLQ replay
 cmd/migrate             schema files only
 internal/platform       infrastructure, no domain knowledge
@@ -207,9 +207,9 @@ Kafka is optional (`KAFKA_ENABLED`). HTTP stays synchronous. Domain writes and `
 
 Contracts: [ADR 0001](./adr/0001-kafka-event-driven-architecture.md), [topic catalog](./eventing/topic-catalog.md), [runbook](./eventing/runbook.md).
 
-Release order (`scripts/release.sh`): PRECHECK → BACKUP → DB_MIGRATE → BROKER_PROVISION → SCHEMA_REGISTER → DEPLOY_API → DEPLOY_WORKER → VERIFY → ENABLE → POST. `POST` (`cmd/post` / `deploy/scripts/post.sh`) is last and owns seeding. API/worker never auto-migrate.
+Release order (`scripts/release.sh`): PRECHECK → BACKUP → DB_MIGRATE → BROKER_PROVISION → SCHEMA_REGISTER → DEPLOY_API → DEPLOY_WORKER → VERIFY → ENABLE → SEED. `SEED` (`cmd/seed` / `deploy/scripts/seed.sh`) is last and owns seeding. API/worker never auto-migrate.
 
-Blue-green app deploy: [`deploy/`](../deploy/). Proxy on `APP_PORT` → `api_blue` or `api_green`. Jenkins uses `deploy/Jenkinsfile` (deploy, then POST).
+Blue-green app deploy: [`deploy/`](../deploy/). Proxy on `APP_PORT` → `api_blue` or `api_green`. Jenkins uses `deploy/Jenkinsfile` (deploy, then SEED).
 
 Local infra (Postgres, Redis, Kafka, Schema Registry, Kafka UI, Mailpit, MinIO):
 
@@ -218,7 +218,7 @@ make infra-up          # core deps; make infra-up-eventing for Kafka
 make kafka-topics
 make kafka-schemas     # posts to schema registry on :8081
 make deploy            # migrate + blue-green API + worker
-make deploy-post       # seed last
+make deploy-seed       # seed last
 ```
 
 

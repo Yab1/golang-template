@@ -50,7 +50,7 @@ make run          # air → cmd/api, default :8080
 Optional:
 
 ```bash
-make post         # seed admin (SEED_ENABLED=true)
+make seed         # seed admin (SEED_ENABLED=true)
 make kafka-topics && make kafka-schemas
 make worker       # Kafka outbox/inbox (KAFKA_ENABLED=true)
 ```
@@ -63,7 +63,7 @@ Blue-green API + worker. Infra still from `infra/`. See **[deploy/README.md](dep
 cd infra && make up && cd ..
 # create deploy/.env  (keys from .envrc.example; docker hostnames)
 make deploy
-make deploy-post   # seed last
+make deploy-seed   # seed last
 ```
 
 ## Contributing
@@ -88,7 +88,7 @@ Deployment assets live in **[deploy/](deploy/)**:
 
 - **[Dockerfile](deploy/Dockerfile)** and **[docker-compose.yml](deploy/docker-compose.yml)** for containerized runs
 - **[Jenkinsfile](deploy/Jenkinsfile)** for CI/CD (PRECHECK → deploy → POST)
-- **[scripts/](deploy/scripts/)** for build and deploy (`deploy.sh`, `post.sh`, `orchestrate.sh`, `config.sh`)
+- **[scripts/](deploy/scripts/)** for build and deploy (`deploy.sh`, `seed.sh`, `orchestrate.sh`, `config.sh`)
 
 Shared dependencies (Postgres, Redis, Kafka, Schema Registry, Mailpit, MinIO) live in **[infra/](infra/)**. See the [infra README](infra/README.md) and [deploy README](deploy/README.md).
 

@@ -32,7 +32,7 @@ func main() {
 		log.Fatalw("database schema is not ready", "error", err)
 	}
 	if !cfg.Seed.Enabled {
-		log.Info("POST complete; seeding disabled")
+		log.Info("seed complete; seeding disabled")
 		return
 	}
 	u, created, err := user.SeedAdmin(
@@ -44,10 +44,10 @@ func main() {
 		cfg.Seed.Role,
 	)
 	if err != nil {
-		log.Fatalw("POST seed failed", "error", err)
+		log.Fatalw("seed failed", "error", err)
 	}
 	log.Infow(
-		"POST complete",
+		"seed complete",
 		"seed_created", created,
 		"user_id", u.ID,
 		"reference_id", u.ReferenceID,

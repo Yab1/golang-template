@@ -20,7 +20,7 @@ ENV CGO_ENABLED=0
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     mkdir -p /out \
- && go build -trimpath -ldflags="-s -w" -o /out/ ./cmd/api ./cmd/worker ./cmd/post
+ && go build -trimpath -ldflags="-s -w" -o /out/ ./cmd/api ./cmd/worker ./cmd/seed
 
 FROM alpine:3.21
 
@@ -31,7 +31,7 @@ WORKDIR /app
 
 COPY --from=builder /out/api /app/api
 COPY --from=builder /out/worker /app/worker
-COPY --from=builder /out/post /app/post
+COPY --from=builder /out/seed /app/seed
 COPY --from=migrate /go/bin/migrate /app/migrate
 COPY cmd/migrate/migrations /app/migrations
 

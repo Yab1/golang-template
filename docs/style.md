@@ -351,7 +351,7 @@ API never publishes to Kafka directly. Worker never auto-migrates. Seed never in
 - Eventing tables before sample posts (`000005` then `000006`).
 - `down.sql` must actually reverse `up.sql`.
 - Data required for **new code correctness** is a migration, not a POST hook.
-- POST (`cmd/post`, `deploy/scripts/post.sh`) is seed/backfill/cleanup only, **last** in `scripts/release.sh`.
+- SEED (`cmd/seed`, `deploy/scripts/seed.sh`) is seed/backfill/cleanup only, **last** in `scripts/release.sh`.
 
 ---
 
