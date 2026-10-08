@@ -14,6 +14,7 @@ sources=(
   "${PREFIX}.identity.user.events.v1"
   "${PREFIX}.content.post.events.v1"
   "${PREFIX}.files.file.events.v1"
+  "${PREFIX}.notify.notification.events.v1"
 )
 
 create_topic() {

@@ -106,6 +106,21 @@ func JSONResponseVersion(w http.ResponseWriter, status int, result any, version 
 	})
 }
 
+// FileURL is the stable download link for a stored object. GET on it redirects to the bytes.
+func FileURL(r *http.Request, key string) string {
+	if r == nil || key == "" {
+		return ""
+	}
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
+		scheme = proto
+	}
+	return scheme + "://" + r.Host + "/api/v1/files/" + key
+}
+
 // JSONList writes a list success envelope (results + meta.version + meta.pagination).
 func JSONList(w http.ResponseWriter, status int, results any, page Pagination) error {
 	return JSONListVersion(w, status, results, page, DefaultAPIVersion)

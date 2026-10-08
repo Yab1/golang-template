@@ -271,7 +271,8 @@ Review question: **“New column? Migration + model + Scan?”**
 
 - Chi router. Module `Routes` mounts under `/api/v1`.
 - Validate with `httpx.Validate` / playground validator tags on payloads.
-- Errors: `httpx.Responder` (`BadRequest`, `Unauthorized`, `Forbidden`, `NotFound`, `Conflict`, `InternalServerError`). Envelope: `{ "error", "request_id" }`.
+- Errors: `httpx.Responder` (`BadRequest`, `Unauthorized`, `Forbidden`, `NotFound`, `Conflict`, `ServiceBusy`, `InternalServerError`). Envelope: `{ "error", "request_id" }`.
+- File download links for clients: `httpx.FileURL(r, key)` (not hand-built host paths).
 - Success:
   - one object: `{ status, result, meta.version }` → swagger `httpx.ObjectResponse{result=T}`
   - list: `{ status, results, meta.pagination }` → `httpx.ListResponse{results=[]T}`

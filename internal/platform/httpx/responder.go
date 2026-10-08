@@ -59,6 +59,18 @@ func (rs *Responder) UnauthorizedBasic(w http.ResponseWriter, r *http.Request, e
 	_ = WriteJSONError(w, http.StatusUnauthorized, "unauthorized", reqID(r))
 }
 
+func (rs *Responder) ServiceBusy(w http.ResponseWriter, r *http.Request, err error, retryAfter string) {
+	msg := "busy"
+	if err != nil {
+		msg = err.Error()
+	}
+	rs.Logger.Warnw("busy", "request_id", reqID(r), "method", r.Method, "path", r.URL.Path, "error", msg)
+	if retryAfter != "" {
+		w.Header().Set("Retry-After", retryAfter)
+	}
+	_ = WriteJSONError(w, http.StatusTooManyRequests, msg, reqID(r))
+}
+
 func (rs *Responder) RateLimitExceeded(w http.ResponseWriter, r *http.Request, retryAfter string) {
 	rs.Logger.Warnw("rate limit exceeded", "request_id", reqID(r), "method", r.Method, "path", r.URL.Path)
 	w.Header().Set("Retry-After", retryAfter)
