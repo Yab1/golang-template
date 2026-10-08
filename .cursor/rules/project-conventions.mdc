@@ -1,0 +1,67 @@
+---
+description: Project conventions — docs, backlog, and shared team practices
+alwaysApply: true
+---
+
+# Project conventions
+
+Living rule for this repo. Add new sections here as conventions settle — do not create one-off rules for every topic unless the concern needs its own file/globs (e.g. Postman).
+
+Canonical style/layout law: `docs/style.md` + `docs/architecture.md`. Agent checklist that must always apply: [`.cursor/rules/go-style.mdc`](go-style.mdc). This file points at docs and captures process that is not code style.
+
+## Docs map
+
+| Path | Use for |
+|------|---------|
+| `docs/architecture.md` | Layout, env flags, auth, health |
+| `docs/style.md` | Lint, module file layout, HTTP patterns |
+| `docs/adr/` | Accepted architecture decisions (why we chose X) |
+| `docs/backlog.md` | Deferred gaps / tech debt — come back later |
+| `docs/eventing/` | Topics, schemas, runbook |
+| `docs/README.md` | Index of the above |
+
+## Backlog (`docs/backlog.md`)
+
+### Purpose
+
+Park known gaps, tech debt, and deferred design work discovered while building. Not a product roadmap. Not an ADR — ADRs record **decided** architecture; backlog records **open** follow-ups.
+
+### When to add an item
+
+- Something works for now but has a clear hole (e.g. orphan files after two-step upload)
+- You choose not to fix it in the current change
+- Future-you (or an agent) should find it without hunting chat history
+
+### How to write an item
+
+Append under the `---` in `docs/backlog.md`:
+
+```markdown
+## Short title
+
+- Area: module / platform (e.g. `file` + `post`)
+- Status: open | parked | done
+- Context: 1–3 lines — what happens today
+- Next: concrete follow-up when we return
+```
+
+Keep entries short. Link related code paths or docs if helpful.
+
+### How to close an item
+
+- Fixed in code → delete the section (or mark `done` then remove in the same PR)
+- Became a lasting decision → move the substance into a new `docs/adr/NNNN-….md` and remove from backlog
+
+### Agent behavior
+
+- When the user parks a follow-up (“we'll come back to this”), **add or update** an entry in `docs/backlog.md` in the same session unless they say not to
+- Before inventing a new cleanup/GC feature that might already be listed, **read** `docs/backlog.md`
+- Do not treat backlog items as committed work unless the user asks to implement one
+
+## Extending this rule
+
+Add new `##` sections below for project-wide conventions (seed flow, env/secrets, module scaffolding, deploy notes, …). Prefer one always-on file over many tiny always-on rules. Use a separate `.mdc` with `globs` only when the rule is file-type specific.
+
+## Postman
+
+When creating or editing anything under `postman/`, **read and follow** [`.cursor/rules/postman-collections.mdc`](postman-collections.mdc) (naming, `base_url`/`root_url`, snake_case vars, dynamic payload vars). Do not invent a parallel style.

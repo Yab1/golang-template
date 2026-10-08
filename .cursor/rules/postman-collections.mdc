@@ -1,0 +1,83 @@
+---
+description: Naming and conventions for Postman collections in this repo
+globs: postman/**/*.json
+alwaysApply: false
+---
+
+# Postman Collections
+
+Apply when creating or editing files under `postman/`. Add new conventions to this rule as they appear.
+
+## Naming
+
+### Collections
+
+- Name = resource only, **all lowercase**
+- No product/service prefix, no em dashes, no Title Case
+- **Filename** = `{resource}.postman_collection.json` (same resource name; no `golang-template-` or other service prefix)
+
+```
+❌ Golang Template — Posts
+❌ Posts
+❌ golang-template-posts.postman_collection.json
+✅ posts
+✅ posts.postman_collection.json
+```
+
+### Folders and requests
+
+- **all lowercase** (spaces OK for readability)
+- Prefer verb + resource; put clarifying context in parentheses
+
+```
+❌ Create Post (with title)
+✅ create post
+✅ get post (by uuid)
+```
+
+### Variables
+
+- Always **snake_case**
+- Never camelCase or PascalCase
+
+```
+❌ baseUrl, accessToken, adminEmail, postId
+✅ base_url, access_token, admin_email, post_id
+```
+
+## Base URLs
+
+- `base_url` = host + `/api/v1` (all versioned API routes)
+- `root_url` = host only (probes: `/live`, `/ready`, `/health`)
+
+```
+base_url = http://localhost:8080/api/v1
+root_url = http://localhost:8080
+
+✅ {{base_url}}/posts
+✅ {{root_url}}/live
+❌ {{base_url}}/api/v1/posts
+❌ {{base_url}}/live
+```
+
+## Request payloads — dynamic variables
+
+Prefer Postman dynamic (`{{$random…}}`) vars for sample body fields that are not fixed by business rules.
+
+Keep **static** when value is constrained (roles, enums, known seed credentials, passwords used for later login, flags like `is_active`).
+
+Randomize freely: names, emails, usernames, free-text titles/content when uniqueness helps.
+
+```json
+{
+  "title": "{{$randomLoremSentence}}",
+  "content": "{{$randomLoremParagraph}}",
+  "visibility": "public"
+}
+```
+
+In scripts: `pm.variables.replaceIn('{{$randomFirstName}}')`.
+
+## Living document
+
+Append new Postman conventions here as the team agrees on them.

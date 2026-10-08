@@ -1,0 +1,90 @@
+---
+description: Go module layout, model/HTTP/event style — agents must follow on every change
+alwaysApply: true
+---
+
+# Go style (agent law)
+
+Canonical detail: [`docs/style.md`](../../docs/style.md) + [`docs/architecture.md`](../../docs/architecture.md). Uber Go Guide for language. **This repo’s layout/model/HTTP rules win** if they conflict with Uber.
+
+When unsure where a file goes or how to shape a model/handler: **read `docs/style.md` before inventing a pattern.**
+
+## Authority
+
+1. `docs/style.md`
+2. Uber Go Style Guide
+3. Go Code Review Comments
+
+## Layout (non-negotiable)
+
+```
+cmd/<process>/              one main per binary
+internal/platform/          infra only — zero domain types
+internal/modules/<name>/    one bounded context (singular package name)
+```
+
+**Forbidden:** `pkg/`, `utils/`, `common/`, `helpers/`, `models/`, `controllers/`, `repositories/`, `services/`, `dto/` as catch-all folders.
+
+## Module shape
+
+Default files: `model.go`, `store.go`, `handler.go`, `module.go`, optional `query.go` / `events.go`.
+
+Scaffold: `make new-module name=<singular>`. Register `Routes` in `cmd/api/api.go`. Migration + `make gen-docs` for public HTTP.
+
+**Grow by concern, same package:**
+
+- Extra tables → `token_store.go`, `invoice_store.go`, …
+- Extra route groups → `catalog_handler.go`, … (`Routes` stays in `module.go`)
+- Pure domain (no HTTP/SQL) → `rules.go`, `status.go`, `gates.go`
+- Never a second package or “service layer” for the same context
+
+## Cross-module
+
+- **Never** import another module’s `Store` or SQL.
+- Consumer declares a **narrow interface** in its own package; producer implements on `Module`; wire in `cmd/api`.
+- Platform pattern to copy: `authz.UserFetcher`.
+
+## Model = full table row
+
+1. New column → migration + model field + every `Scan`/`SELECT`
+2. Public JSON: `json:"snake_case"`; secrets/internal: `json:"-"`
+3. Request bodies = handler payloads (`CreateXPayload`) — not embedded on the model
+4. Soft delete + visibility + stamps + `metadata` + `version` as in `docs/style.md`
+5. No second “light” model for the same table (optional read/DTO file OK for screens)
+
+## HTTP
+
+- Chi under `/api/v1`; validate with `httpx.Validate`
+- Errors/success via `httpx.Responder` envelopes only
+- Auth: `guard.AuthToken`; writes: `OwnershipOrRole` with roles from this repo’s seed
+- Context middleware loads the resource; handlers use context
+- Audit after successful mutation; audit failure must **not** fail the request
+- No SQL in handlers; no `ResponseWriter` in stores
+
+## Events / tx
+
+- Domain write + outbox **same transaction** when `events != nil`
+- Past-tense facts; ids + routing only — no secrets/PII dumps
+- New event → schema + example under `docs/eventing/` + catalog
+- API never publishes Kafka directly; never migrate/seed in API boot
+
+## Naming
+
+| Thing | Pattern |
+|-------|---------|
+| Package | singular lowercase (`post`) |
+| Handlers | `createPostHandler` |
+| Errors | `ErrNotFound` / `errInvalidCursor` |
+| Env | `SCREAMING_SNAKE` via `internal/platform/config` |
+
+## Comments / tests / PR
+
+- Comments explain **why**, not the next line
+- Tests: same package, stdlib `testing` only (no testify)
+- Before finish: `make lint` + `make test` mindset; no secrets; no new `utils/`
+
+## Do not
+
+- Re-litigate Uber in code — link the guide heading
+- Copy EMR clinical modules/roles/FHIR blindly into this template
+- Add Chromium/PDF/infra concerns unless the task asks for them

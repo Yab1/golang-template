@@ -4,8 +4,9 @@ Index for project docs. Style and how to run the app stay split: this folder is 
 
 | Doc | What |
 |-----|------|
-| [style.md](style.md) | Lint/editor setup and every project style rule |
+| [style.md](style.md) | Lint/editor setup and every project style rule (module growth, cross-module, HTTP) |
 | [architecture.md](architecture.md) | Layout, env flags, auth, pagination, health, rate limit |
+| [backlog.md](backlog.md) | Deferred gaps / tech debt |
 | [adr/0001-kafka-event-driven-architecture.md](adr/0001-kafka-event-driven-architecture.md) | Why outbox + Kafka |
 | [eventing/topic-catalog.md](eventing/topic-catalog.md) | Event types and topics |
 | [eventing/runbook.md](eventing/runbook.md) | Retry, DLQ, replay |

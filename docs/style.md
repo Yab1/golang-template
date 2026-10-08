@@ -177,29 +177,69 @@ docs/                    human docs + event schemas
 
 ### 4.2 Domain module files
 
-Every resource module:
+Every resource module starts as one package with these files:
 
 ```
 internal/modules/<name>/
-  model.go      table/domain row
+  model.go      table/domain row(s)
   store.go      SQL only (*Tx when outbox is used)
   handler.go    HTTP payloads, validate, status, call store
-  module.go     New + Routes + middleware
+  module.go     New + Routes + middleware wiring
   query.go      optional list URL → struct
   events.go     optional transactional outbox (nil-safe if Kafka off)
 ```
 
-Split extra files **by concern** (`auth.go`, `token_store.go`), never by layer (`controllers/`, `repositories/`).
+**One package per bounded context** (singular name: `post`, `user`, `file`). Never nest `controllers/`, `repositories/`, `services/`, `dto/` folders.
 
 Scaffold:
 
 ```bash
-make new-module name=patient
+make new-module name=order
 ```
 
-Then: migration (stamps, `is_visible`, `metadata`, `version`, soft delete), fill store/handlers, register `Routes` in `cmd/api/api.go`, `make gen-docs`. Sample `post` migration stays **last** (`000006`) so forks can delete it.
+Then: migration (stamps, `is_visible`, `metadata`, `version`, soft delete), fill store/handlers, register `Routes` in `cmd/api/api.go`, `make gen-docs`. Sample `post` migration stays **last** so forks can delete it.
 
-### 4.3 Platform
+### 4.3 Growing a module (split by concern, not by layer)
+
+When one file gets hard to navigate, **split inside the same package**. File name = concern:
+
+| Pattern | When |
+|---------|------|
+| `auth.go`, `account.go` | Separate HTTP surfaces in one module (`user`) |
+| `token_store.go`, `refresh_store.go` | Extra tables owned by the same module |
+| `invoice_store.go`, `ward_store.go` | Multiple aggregates / tables in one bounded context |
+| `catalog_handler.go`, `payment_handler.go` | Multiple route groups; keep `Routes` in `module.go` |
+| `rules.go`, `status.go`, `gates.go` | Pure domain logic — no `http`, no SQL |
+| `cards.go` or similar | Optional read/DTO shapes for a screen — **not** a second table model |
+| `*_test.go` | Same package (`package post`) |
+
+Rules:
+
+- Still **one** `Module` type and one `Routes` entrypoint.
+- Store methods that share a tx with outbox stay `CreateTx` / `UpdateTx` / `SoftDeleteTx`.
+- Do not create a parallel “service layer” package. Handlers call store (+ optional pure helpers).
+- Thin platform-facing modules (e.g. `file`) may omit a fat `module.go` if wiring lives in `cmd/api` — prefer `module.go` for anything with its own routes.
+
+### 4.4 Cross-module collaboration
+
+Modules **never** import another module’s `Store` or SQL.
+
+1. **Consumer** declares a **narrow interface** in its own package (only the methods it needs).
+2. **Producer** exposes those methods on its `Module` (or a tiny adapter in `cmd/api`).
+3. **Wire** in `cmd/api` (`SetChart(patientMod)`, constructor arg, etc.).
+
+```go
+// in billing (consumer) — not in patient
+type Chart interface {
+    Exists(ctx context.Context, id uuid.UUID) error
+}
+```
+
+Platform already uses this pattern (`authz.UserFetcher`). Copy it for domain↔domain reads.
+
+Do not share concrete `*patient.Store`. Do not put domain joins into `internal/platform`.
+
+### 4.5 Platform
 
 `internal/platform/*` has no `User`/`Post` types. Domain depends on small interfaces (`outbox.Store`, `audit.Logger`, `authz.UserFetcher`), not Kafka client types.
 
@@ -221,7 +261,7 @@ Non-negotiable for CRUD entities.
 10. `Version` (or `version`) for optimistic concurrency / event `aggregateversion`.
 11. `ReferenceID` human id via `internal/platform/refid` where the module uses public codes (`GTL-USR-…`).
 
-Exceptions: join-heavy read models, FHIR wire types in `fhir_mapping.go`. Core entity stays full-row.
+Exceptions: join-heavy read models; optional wire/mapping types in a concern file (e.g. `fhir_mapping.go` when the product speaks FHIR). Core entity stays full-row.
 
 Review question: **“New column? Migration + model + Scan?”**
 
@@ -236,9 +276,11 @@ Review question: **“New column? Migration + model + Scan?”**
   - one object: `{ status, result, meta.version }` → swagger `httpx.ObjectResponse{result=T}`
   - list: `{ status, results, meta.pagination }` → `httpx.ListResponse{results=[]T}`
 - Pagination: `internal/platform/query` — offset (`limit`/`offset`) or cursor (`cursor`, `sort_by=created_at`). Module `query.go` composes parsers. Domain filters stay in the module.
-- Auth: `guard.AuthToken`. Writes: `OwnershipOrRole("moderator"|"admin", ownerFn)`.
+- Auth: `guard.AuthToken`. Writes: `OwnershipOrRole("<role>", ownerFn)` using roles from `user` seed / `roles.go` (template sample: `moderator`, `admin`). Higher role **level** satisfies lower.
+- Resource routes: load the row in `xxxContextMiddleware`, attach to request context, handlers read from context — do not re-fetch ad hoc in every handler when the middleware already loaded it.
 - After a **successful** mutation: `audit.Record(...)`. Audit failure is logged; **do not** fail the HTTP request.
 - Rate limits: don’t invent a second limiter; use `writeLimit` / `authLimit` from `cmd/api`.
+- `New(...)`: nil-safe `writeLimit` and `audit` (no-op / passthrough) so tests and partial wiring stay easy.
 
 Do not put SQL in handlers. Do not put `http.ResponseWriter` in stores.
 

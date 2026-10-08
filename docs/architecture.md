@@ -17,11 +17,12 @@ internal/modules        one vertical slice per domain concept
 
 ## Rules
 
-- Each module owns its **model + SQL + HTTP**.
+- Each module owns its **model + SQL + HTTP** (one singular package per bounded context).
 - **Model = full table row**; internal cols use `json:"-"` (see [style.md](./style.md)).
-- Modules never import each other's stores. Cross-module reads go through a **narrow interface the consumer declares** (see `platform/authz.UserFetcher`).
+- Grow a module by splitting **files by concern** (`*_store.go`, `*_handler.go`, `rules.go`) — never by layer folders (`controllers/`, `repositories/`).
+- Modules never import each other's stores. Cross-module reads go through a **narrow interface the consumer declares** (same idea as `platform/authz.UserFetcher`); wire in `cmd/api`.
 - List URL parsing: reuse `internal/platform/query` (`ParsePage`, `ParseSort`, `ParseUUID`, …); domain filters stay in module `query.go`.
-- FHIR wire shapes belong in a module's `fhir_mapping.go`. They are not DB models.
+- Optional external wire shapes (e.g. FHIR) live in a concern file in the module — they are not DB models.
 - `internal/` stays private to this module. Do not invent a `pkg/` or `utils/` folder.
 
 ## Style
