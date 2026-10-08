@@ -12,7 +12,7 @@ internal/platform       infrastructure, no domain knowledge
   config db redis ratelimiter httpx storage query authn authz blob
   mailer logger metrics refid audit event outbox inbox kafka eventing
 internal/modules        one vertical slice per domain concept
-  user/ post/ file/     (later: clinical/patient, fhir/observation)
+  user/ post/ file/ notification/
 ```
 
 ## Rules
@@ -69,7 +69,13 @@ Config loaders live under `internal/platform/config/` — one file per env secti
 | `METRICS_TOKEN` | empty | `X-Metrics-Token` or `Authorization: Bearer` |
 | `AUDIT_ENABLED` | true | Append-only `audit_logs` on post/user/file mutations |
 | `KAFKA_ENABLED` | false | Write domain mutations to `event_outbox`; worker publishes/consumes |
-| `DB_EXPECTED_SCHEMA_VERSION` | 6 | `/ready` fails if `schema_migrations.version` is behind |
+| `DB_EXPECTED_SCHEMA_VERSION` | 7 | `/ready` fails if `schema_migrations.version` is behind |
+| `NOTIFICATION_DISPATCH_ENABLED` | true | API process drains the Postgres notification queue |
+| `NOTIFICATION_EMAIL_ENABLED` | false | Email channel (uses `MAIL_*`) |
+| `NOTIFICATION_SMS_ENABLED` | false | SMS channel (`SMS_PROVIDER_URL`) |
+| `NOTIFICATION_PUSH_ENABLED` | false | Push channel (`PUSH_PROVIDER_URL`) |
+| `NOTIFICATION_IN_APP_ENABLED` | true | In-app inbox |
+| `NOTIFICATION_TELEGRAM_ENABLED` | false | Telegram (`TELEGRAM_BOT_TOKEN`) |
 | `TRUSTED_PROXIES` | empty | CIDRs allowed to set `X-Forwarded-For` / `X-Real-IP` |
 | `LOG_LEVEL` | debug in development | `debug` \| `info` \| `warn` \| `error` |
 | `LOG_FORMAT` | console in development | `console` \| `json` |

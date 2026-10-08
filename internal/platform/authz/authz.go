@@ -2,6 +2,7 @@ package authz
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -148,6 +149,29 @@ func (g *Guard) AuthToken(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), principalKey, principal)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+var ErrForbidden = errors.New("forbidden")
+
+// Allows reports whether principal may act as requiredRole, or is ownerID.
+func (g *Guard) Allows(ctx context.Context, principal *Principal, requiredRole string, ownerID uuid.UUID) error {
+	if g == nil || !g.RBACEnabled {
+		return nil
+	}
+	if principal == nil {
+		return fmt.Errorf("missing principal")
+	}
+	if ownerID != uuid.Nil && ownerID == principal.ID {
+		return nil
+	}
+	level, err := g.Roles.LevelOf(ctx, requiredRole)
+	if err != nil {
+		return err
+	}
+	if principal.RoleLevel < level {
+		return ErrForbidden
+	}
+	return nil
 }
 
 func (g *Guard) OwnershipOrRole(requiredRole string, ownerID func(*http.Request) uuid.UUID) func(http.Handler) http.Handler {

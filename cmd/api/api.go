@@ -21,6 +21,7 @@ import (
 
 	"github.com/Yab1/golang-template/docs"
 	"github.com/Yab1/golang-template/internal/modules/file"
+	"github.com/Yab1/golang-template/internal/modules/notification"
 	"github.com/Yab1/golang-template/internal/modules/post"
 	"github.com/Yab1/golang-template/internal/modules/user"
 	"github.com/Yab1/golang-template/internal/platform/config"
@@ -31,16 +32,17 @@ import (
 )
 
 type application struct {
-	config  config.Config
-	logger  *zap.SugaredLogger
-	respond *httpx.Responder
-	limiter *ratelimiter.Middleware
-	users   *user.Module
-	posts   *post.Module
-	files   *file.Module
-	pool    *pgxpool.Pool
-	rdb     *redis.Client
-	outbox  *outbox.Store
+	config        config.Config
+	logger        *zap.SugaredLogger
+	respond       *httpx.Responder
+	limiter       *ratelimiter.Middleware
+	users         *user.Module
+	posts         *post.Module
+	notifications *notification.Module
+	files         *file.Module
+	pool          *pgxpool.Pool
+	rdb           *redis.Client
+	outbox        *outbox.Store
 }
 
 func (app *application) mount() http.Handler {
@@ -96,6 +98,9 @@ func (app *application) mount() http.Handler {
 		r.Use(app.limiter.ByIP(toRule(app.config.RateLimit.Read)))
 		app.users.Routes(r)
 		app.posts.Routes(r)
+		if app.notifications != nil {
+			app.notifications.Routes(r)
+		}
 		if app.files != nil {
 			app.files.Routes(r)
 		}
@@ -127,6 +132,12 @@ func (app *application) run(mux http.Handler) error {
 		IdleTimeout:  60 * time.Second,
 	}
 
+	dispCtx, dispCancel := context.WithCancel(context.Background())
+	defer dispCancel()
+	if app.notifications != nil {
+		go app.notifications.Run(dispCtx)
+	}
+
 	errCh := make(chan error, 1)
 	go func() {
 		app.logger.Infow("server has started",
@@ -154,6 +165,7 @@ func (app *application) run(mux http.Handler) error {
 		return err
 	case sig := <-quit:
 		app.logger.Infow("shutdown signal", "signal", sig.String())
+		dispCancel()
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		if err := srv.Shutdown(ctx); err != nil {

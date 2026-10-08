@@ -36,6 +36,40 @@ type TokenResponse struct {
 	ExpiresIn    int64  `json:"expires_in"`
 }
 
+// meHandler godoc
+//
+//	@Summary		Current user profile
+//	@Description	Returns the authenticated user including role.
+//	@Tags			authentication
+//	@Produce		json
+//	@Success		200	{object}	httpx.ObjectResponse{result=User}
+//	@Failure		401	{object}	httpx.ErrorResponse
+//	@Failure		500	{object}	httpx.ErrorResponse
+//	@Security		BearerAuth
+//	@Router			/authentication/me [get]
+func (m *Module) meHandler(w http.ResponseWriter, r *http.Request) {
+	principal := authz.PrincipalFrom(r)
+	if principal == nil {
+		m.respond.Unauthorized(w, r, errors.New("unauthorized"))
+		return
+	}
+
+	u, err := m.users.GetByID(r.Context(), principal.ID)
+	if err != nil {
+		switch {
+		case errors.Is(err, storage.ErrNotFound):
+			m.respond.Unauthorized(w, r, err)
+		default:
+			m.respond.InternalServerError(w, r, err)
+		}
+		return
+	}
+
+	if err := httpx.JSONResponse(w, http.StatusOK, u); err != nil {
+		m.respond.InternalServerError(w, r, err)
+	}
+}
+
 // createTokenHandler godoc
 //
 //	@Summary		Login

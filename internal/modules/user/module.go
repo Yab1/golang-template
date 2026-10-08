@@ -1,10 +1,12 @@
 package user
 
 import (
+	"context"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 
@@ -19,6 +21,7 @@ import (
 
 type authGuard interface {
 	AuthToken(http.Handler) http.Handler
+	OwnershipOrRole(requiredRole string, ownerID func(*http.Request) uuid.UUID) func(http.Handler) http.Handler
 }
 
 type Module struct {
@@ -120,6 +123,15 @@ func (m *Module) SetGuard(g authGuard) {
 	m.guard = g
 }
 
+// AccountContact is the email and active flag the notification module needs.
+func (m *Module) AccountContact(ctx context.Context, id uuid.UUID) (email string, active bool, err error) {
+	u, err := m.users.GetByID(ctx, id)
+	if err != nil {
+		return "", false, err
+	}
+	return u.Email, u.IsActive, nil
+}
+
 func (m *Module) Routes(r chi.Router) {
 	r.Route("/authentication", func(r chi.Router) {
 		r.Group(func(r chi.Router) {
@@ -134,6 +146,7 @@ func (m *Module) Routes(r chi.Router) {
 		if m.guard != nil {
 			r.Group(func(r chi.Router) {
 				r.Use(m.guard.AuthToken)
+				r.Get("/me", m.meHandler)
 				r.Post("/logout", m.logoutHandler)
 				r.Post("/logout-all", m.logoutAllHandler)
 				r.Post("/change-password", m.changePasswordHandler)
@@ -143,5 +156,23 @@ func (m *Module) Routes(r chi.Router) {
 
 	r.Route("/users", func(r chi.Router) {
 		r.Post("/", m.createUserHandler)
+		if m.guard != nil {
+			r.With(m.guard.AuthToken, m.guard.OwnershipOrRole(RoleAdmin, noOwner)).
+				Get("/", m.listUsersHandler)
+			r.With(m.guard.AuthToken, m.guard.OwnershipOrRole(RoleAdmin, noOwner)).
+				Patch("/{userID}/role", m.assignUserRoleHandler)
+		}
 	})
+
+	if m.guard != nil {
+		r.Route("/roles", func(r chi.Router) {
+			r.With(m.guard.AuthToken).Get("/", m.listRolesHandler)
+			r.With(m.guard.AuthToken).Get("/{roleID}", m.getRoleHandler)
+			r.With(m.guard.AuthToken, m.guard.OwnershipOrRole(RoleAdmin, noOwner)).Post("/", m.createRoleHandler)
+			r.With(m.guard.AuthToken, m.guard.OwnershipOrRole(RoleAdmin, noOwner)).Patch("/{roleID}", m.updateRoleHandler)
+			r.With(m.guard.AuthToken, m.guard.OwnershipOrRole(RoleAdmin, noOwner)).Delete("/{roleID}", m.deleteRoleHandler)
+		})
+	}
 }
+
+func noOwner(*http.Request) uuid.UUID { return uuid.Nil }

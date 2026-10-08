@@ -3,6 +3,8 @@ package user
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strings"
 	"errors"
 
 	"github.com/google/uuid"
@@ -10,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/Yab1/golang-template/internal/platform/query"
 	"github.com/Yab1/golang-template/internal/platform/refid"
 	"github.com/Yab1/golang-template/internal/platform/storage"
 )
@@ -309,4 +312,173 @@ func (s *Store) VersionTx(ctx context.Context, tx pgx.Tx, id uuid.UUID) (int64, 
 		return 0, err
 	}
 	return version, nil
+}
+
+// UpdateRole sets users.role_id, bumps version + token_version
+// so existing access JWTs die immediately after a privilege change.
+func (s *Store) UpdateRole(ctx context.Context, userID uuid.UUID, roleID int64, updatedBy *uuid.UUID) (*User, error) {
+	query := `
+		UPDATE users
+		SET role_id = $2,
+		    version = version + 1,
+		    token_version = token_version + 1,
+		    updated_at = NOW(),
+		    updated_by = COALESCE($3, updated_by)
+		WHERE id = $1
+		RETURNING id
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, storage.QueryTimeoutDuration)
+	defer cancel()
+
+	var id uuid.UUID
+	err := s.db.QueryRow(ctx, query, userID, roleID, updatedBy).Scan(&id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, storage.ErrNotFound
+		}
+		return nil, storage.MapError(err)
+	}
+	return s.GetByID(ctx, id)
+}
+
+func (s *Store) List(ctx context.Context, q ListQuery) (*query.ListResult[*User], error) {
+	ctx, cancel := context.WithTimeout(ctx, storage.QueryTimeoutDuration)
+	defer cancel()
+
+	where := []string{"TRUE"}
+	args := []any{}
+	argN := 1
+
+	if q.Search != "" {
+		where = append(where, fmt.Sprintf(
+			`(u.email ILIKE '%%' || $%d || '%%'
+			  OR u.username ILIKE '%%' || $%d || '%%'
+			  OR u.reference_id ILIKE '%%' || $%d || '%%')`,
+			argN, argN, argN,
+		))
+		args = append(args, q.Search)
+		argN++
+	}
+
+	if q.Role != "" {
+		where = append(where, fmt.Sprintf("r.name = $%d", argN))
+		args = append(args, q.Role)
+		argN++
+	}
+
+	if q.IsActive != nil {
+		where = append(where, fmt.Sprintf("COALESCE(u.is_active, false) = $%d", argN))
+		args = append(args, *q.IsActive)
+		argN++
+	}
+
+	var cursorPos *query.Cursor
+	if q.UsingCursor() {
+		c, err := query.DecodeCursor(q.Cursor)
+		if err != nil {
+			return nil, err
+		}
+		cursorPos = &c
+		if q.Sort.Order == "asc" {
+			where = append(where, fmt.Sprintf("(u.created_at, u.id) > ($%d::timestamptz, $%d::uuid)", argN, argN+1))
+		} else {
+			where = append(where, fmt.Sprintf("(u.created_at, u.id) < ($%d::timestamptz, $%d::uuid)", argN, argN+1))
+		}
+		args = append(args, cursorPos.CreatedAt, cursorPos.ID)
+		argN += 2
+	}
+
+	whereSQL := strings.Join(where, " AND ")
+	fromSQL := `FROM users u JOIN roles r ON r.id = u.role_id WHERE ` + whereSQL
+	result := &query.ListResult[*User]{Items: make([]*User, 0)}
+
+	if !q.UsingCursor() {
+		countQuery := `SELECT COUNT(*) ` + fromSQL
+		if err := s.db.QueryRow(ctx, countQuery, args...).Scan(&result.Total); err != nil {
+			return nil, err
+		}
+	}
+
+	listArgs := append([]any{}, args...)
+	var listQuery string
+	if q.UsingCursor() {
+		dir := "DESC"
+		if q.Sort.Order == "asc" {
+			dir = "ASC"
+		}
+		listArgs = append(listArgs, q.Limit)
+		listQuery = fmt.Sprintf(`
+			SELECT %s
+			%s
+			ORDER BY u.created_at %s, u.id %s
+			LIMIT $%d
+		`, userColumns, fromSQL, dir, dir, argN)
+	} else {
+		listArgs = append(listArgs, q.Limit, q.Offset)
+		listQuery = fmt.Sprintf(`
+			SELECT %s
+			%s
+			ORDER BY %s
+			LIMIT $%d OFFSET $%d
+		`, userColumns, fromSQL, q.Sort.Clause(), argN, argN+1)
+	}
+
+	rows, err := s.db.Query(ctx, listQuery, listArgs...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		u, err := scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		result.Items = append(result.Items, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if q.UsingCursor() && len(result.Items) == q.Limit {
+		last := result.Items[len(result.Items)-1]
+		result.NextCursor = query.EncodeCursor(last.CreatedAt, last.ID)
+	}
+
+	return result, nil
+}
+
+type userScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanUser(row userScanner) (*User, error) {
+	var u User
+	err := row.Scan(
+		&u.ID,
+		&u.ReferenceID,
+		&u.Email,
+		&u.Username,
+		&u.Password.hash,
+		&u.IsActive,
+		&u.IsVisible,
+		&u.Metadata,
+		&u.RoleID,
+		&u.Version,
+		&u.CreatedAt,
+		&u.UpdatedAt,
+		&u.CreatedBy,
+		&u.UpdatedBy,
+		&u.TokenVersion,
+		&u.Role.ID,
+		&u.Role.Name,
+		&u.Role.Level,
+		&u.Role.Description,
+	)
+	if err != nil {
+		return nil, err
+	}
+	u.Metadata = metaOrEmpty(u.Metadata)
+	return &u, nil
 }

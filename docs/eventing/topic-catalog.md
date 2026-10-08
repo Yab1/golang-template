@@ -49,6 +49,7 @@ The Kafka key and `subject` identify the same aggregate. The envelope schema is 
 | `<environment>.identity.user.events.v1` | `user_id` | user module | `dev.yab1.golangtemplate.user.registered.v1`, `dev.yab1.golangtemplate.user.activated.v1`, `dev.yab1.golangtemplate.user.password-changed.v1`, `dev.yab1.golangtemplate.user.visibility-changed.v1` |
 | `<environment>.content.post.events.v1` | `post_id` | post module | `dev.yab1.golangtemplate.post.created.v1`, `dev.yab1.golangtemplate.post.updated.v1`, `dev.yab1.golangtemplate.post.visibility-changed.v1`, `dev.yab1.golangtemplate.post.deleted.v1` |
 | `<environment>.files.file.events.v1` | `file_id` | file module | `dev.yab1.golangtemplate.file.uploaded.v1`, `dev.yab1.golangtemplate.file.deleted.v1` |
+| `<environment>.notify.notification.events.v1` | `notification_id` | notification module | `dev.yab1.golangtemplate.notification.queued.v1` |
 
 `file_id` is the generated opaque object key. It must not be an original client filename or a URL.
 

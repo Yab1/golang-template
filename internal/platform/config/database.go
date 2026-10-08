@@ -16,6 +16,6 @@ func loadDB() DB {
 		MaxConns:        env.GetInt("DB_MAX_CONNS", 30),
 		MinConns:        env.GetInt("DB_MIN_CONNS", 2),
 		MaxConnIdleTime: env.GetString("DB_MAX_CONN_IDLE_TIME", "15m"),
-		ExpectedVersion: env.GetInt("DB_EXPECTED_SCHEMA_VERSION", 6),
+		ExpectedVersion: env.GetInt("DB_EXPECTED_SCHEMA_VERSION", 7),
 	}
 }

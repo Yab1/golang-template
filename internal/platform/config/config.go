@@ -30,9 +30,10 @@ type Config struct {
 	Files     Files
 	Mail      Mail
 	Metrics   Metrics
-	Audit     Audit
-	Kafka     Kafka
-	Eventing  Eventing
+	Audit        Audit
+	Kafka        Kafka
+	Eventing     Eventing
+	Notification Notification
 }
 
 func Load() Config {
@@ -40,25 +41,26 @@ func Load() Config {
 	appName := env.GetString("APP_NAME", "golang-template")
 
 	return Config{
-		Addr:      env.GetString("ADDR", ":8080"),
-		Env:       envName,
-		AppName:   appName,
-		RefPrefix: env.GetString("REF_PREFIX", appName),
-		Log:       loadLog(envName),
-		HTTP:      loadHTTP(),
-		Swagger:   loadSwagger(),
-		DB:        loadDB(),
-		Auth:      loadAuth(envName),
-		Seed:      loadSeed(),
-		Redis:     loadRedis(),
-		RateLimit: loadRateLimit(),
-		Storage:   loadStorage(),
-		Files:     loadFiles(),
-		Mail:      loadMail(appName),
-		Metrics:   loadMetrics(),
-		Audit:     loadAudit(),
-		Kafka:     loadKafka(envName, appName),
-		Eventing:  loadEventing(),
+		Addr:         env.GetString("ADDR", ":8080"),
+		Env:          envName,
+		AppName:      appName,
+		RefPrefix:    env.GetString("REF_PREFIX", appName),
+		Log:          loadLog(envName),
+		HTTP:         loadHTTP(),
+		Swagger:      loadSwagger(),
+		DB:           loadDB(),
+		Auth:         loadAuth(envName),
+		Seed:         loadSeed(),
+		Redis:        loadRedis(),
+		RateLimit:    loadRateLimit(),
+		Storage:      loadStorage(),
+		Files:        loadFiles(),
+		Mail:         loadMail(appName),
+		Metrics:      loadMetrics(),
+		Audit:        loadAudit(),
+		Kafka:        loadKafka(envName, appName),
+		Eventing:     loadEventing(),
+		Notification: loadNotification(),
 	}
 }
 

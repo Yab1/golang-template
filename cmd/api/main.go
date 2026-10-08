@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/Yab1/golang-template/internal/modules/file"
+	"github.com/Yab1/golang-template/internal/modules/notification"
 	"github.com/Yab1/golang-template/internal/modules/post"
 	"github.com/Yab1/golang-template/internal/modules/user"
 	"github.com/Yab1/golang-template/internal/platform/audit"
@@ -107,18 +108,28 @@ func main() {
 		eventSource,
 	)
 	files := setupFiles(cfg, pool, respond, guard, rl, auditLog, log, eventStore, eventSource)
+	registerFileTargets(files)
+	notifyMod := notification.New(
+		pool, respond, guard, refs,
+		notificationAccounts{users: users},
+		mail,
+		cfg.Notification,
+		rl.ByUser(toRule(cfg.RateLimit.Write)),
+		auditLog, log, eventStore, cfg.Kafka.TopicPrefix, eventSource,
+	)
 
 	app := &application{
-		config:  cfg,
-		logger:  log,
-		respond: respond,
-		limiter: rl,
-		users:   users,
-		posts:   posts,
-		files:   files,
-		pool:    pool,
-		rdb:     rdb,
-		outbox:  eventStore,
+		config:        cfg,
+		logger:        log,
+		respond:       respond,
+		limiter:       rl,
+		users:         users,
+		posts:         posts,
+		notifications: notifyMod,
+		files:         files,
+		pool:          pool,
+		rdb:           rdb,
+		outbox:        eventStore,
 	}
 	if err := app.run(app.mount()); err != nil {
 		log.Fatal(err)

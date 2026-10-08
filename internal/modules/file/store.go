@@ -77,6 +77,19 @@ func (s *Store) Get(ctx context.Context, key string) (*Object, error) {
 	return &object, nil
 }
 
+func (m *Module) Exists(ctx context.Context, key string) error {
+	_, err := m.files.Get(ctx, key)
+	return err
+}
+
+func (m *Module) SaveGenerated(ctx context.Context, tx pgx.Tx, object *Object) error {
+	if len(object.Metadata) == 0 {
+		object.Metadata = []byte(`{}`)
+	}
+	object.IsVisible = true
+	return m.files.CreateTx(ctx, tx, object)
+}
+
 func (s *Store) SoftDeleteTx(ctx context.Context, tx pgx.Tx, object *Object, actor *uuid.UUID) error {
 	err := tx.QueryRow(ctx, `
 		UPDATE file_objects

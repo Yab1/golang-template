@@ -39,7 +39,7 @@ export DB_ADDR=postgres://admin:password@localhost:5432/golang_template?sslmode=
 export DB_MAX_CONNS=30
 export DB_MIN_CONNS=2
 export DB_MAX_CONN_IDLE_TIME=15m
-export DB_EXPECTED_SCHEMA_VERSION=6
+export DB_EXPECTED_SCHEMA_VERSION=7
 
 # --- auth ---
 export AUTH_REQUIRED=true
@@ -108,6 +108,24 @@ export SMTP_STARTTLS=false
 export SES_REGION=us-east-1
 export SES_ACCESS_KEY=
 export SES_SECRET_KEY=
+
+# --- notifications ---
+# Delivery runs in the API process. Kafka is not required.
+# Email uses MAIL_* above. SMS and push POST JSON {to, subject, body} to the provider URL.
+export NOTIFICATION_DISPATCH_ENABLED=true
+export NOTIFICATION_POLL_INTERVAL=2s
+export NOTIFICATION_BATCH_SIZE=25
+export NOTIFICATION_MAX_ATTEMPTS=5
+export NOTIFICATION_EMAIL_ENABLED=false
+export NOTIFICATION_SMS_ENABLED=false
+export NOTIFICATION_PUSH_ENABLED=false
+export NOTIFICATION_IN_APP_ENABLED=true
+export NOTIFICATION_TELEGRAM_ENABLED=false
+export TELEGRAM_BOT_TOKEN=
+export SMS_PROVIDER_URL=
+export SMS_PROVIDER_TOKEN=
+export PUSH_PROVIDER_URL=
+export PUSH_PROVIDER_TOKEN=
 
 # --- metrics ---
 export METRICS_ENABLED=false

@@ -1,15 +1,17 @@
 package file
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
@@ -39,6 +41,7 @@ type Module struct {
 	writeLimit   func(http.Handler) http.Handler
 	maxBytes     int64
 	allowedTypes map[string]struct{}
+	targets      map[string]Target
 }
 
 type authGuard interface {
@@ -47,10 +50,11 @@ type authGuard interface {
 
 type UploadResponse struct {
 	Key         string `json:"key"`
-	URL         string `json:"url"`
 	Size        int64  `json:"size"`
 	ContentType string `json:"content_type"`
-	Driver      string `json:"driver"`
+	Resource    string `json:"resource"`
+	Field       string `json:"field"`
+	ID          string `json:"id"`
 }
 
 func New(
@@ -96,139 +100,186 @@ func New(
 func (m *Module) Routes(r chi.Router) {
 	r.Route("/files", func(r chi.Router) {
 		r.With(m.guard.AuthToken, m.writeLimit).Post("/", m.uploadHandler)
-		r.Get("/{key}", m.getHandler)
-		r.With(m.guard.AuthToken, m.writeLimit).Delete("/{key}", m.deleteHandler)
+		r.Get("/*", m.getHandler)
+		r.With(m.guard.AuthToken, m.writeLimit).Delete("/*", m.deleteHandler)
 	})
 }
 
 // uploadHandler godoc
 //
-//	@Summary		Upload a file
-//	@Description	Multipart form field "file". Backend is local, s3, or minio via STORAGE_DRIVER.
+//	@Summary		Upload a file onto a record
+//	@Description	Multipart fields file, resource, field, and id. resource and field must be a registered pair. The server creates the storage key and attaches it in the same transaction. A replaced photo or logo deletes the previous object.
 //	@Tags			files
 //	@Accept			mpfd
 //	@Produce		json
-//	@Param			file	formData	file	true	"File"
-//	@Success		201		{object}	httpx.ObjectResponse{result=UploadResponse}
-//	@Failure		400		{object}	httpx.ErrorResponse
-//	@Failure		401		{object}	httpx.ErrorResponse
-//	@Failure		500		{object}	httpx.ErrorResponse
+//	@Param			file		formData	file	true	"File"
+//	@Param			resource	formData	string	true	"Resource"	Enums(upload)
+//	@Param			field		formData	string	true	"Field"		Enums(file)
+//	@Param			id			formData	string	true	"Record UUID or reference id"
+//	@Success		201			{object}	httpx.ObjectResponse{result=UploadResponse}
+//	@Failure		400			{object}	httpx.ErrorResponse
+//	@Failure		401			{object}	httpx.ErrorResponse
+//	@Failure		403			{object}	httpx.ErrorResponse
+//	@Failure		404			{object}	httpx.ErrorResponse
+//	@Failure		409			{object}	httpx.ErrorResponse
 //	@Security		BearerAuth
 //	@Router			/files [post]
 func (m *Module) uploadHandler(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, m.maxBytes+1024)
-	if err := r.ParseMultipartForm(m.maxBytes); err != nil {
+	limit := m.maxBytes
+	r.Body = http.MaxBytesReader(w, r.Body, limit+2048)
+	if err := r.ParseMultipartForm(limit); err != nil {
 		m.respond.BadRequest(w, r, fmt.Errorf("file too large or invalid multipart"))
 		return
 	}
-
+	resource := strings.ToLower(strings.TrimSpace(r.FormValue("resource")))
+	field := strings.ToLower(strings.TrimSpace(r.FormValue("field")))
+	recordID := strings.TrimSpace(r.FormValue("id"))
+	if resource == "" || field == "" || recordID == "" {
+		m.respond.BadRequest(w, r, ErrSlot)
+		return
+	}
+	target, ok := m.target(resource, field)
+	if !ok || target.Bind == nil || target.Locate == nil || target.Class == "" {
+		m.respond.BadRequest(w, r, ErrTarget)
+		return
+	}
+	if target.MaxBytes > 0 && target.MaxBytes < limit {
+		limit = target.MaxBytes
+	}
 	fh, header, err := r.FormFile("file")
 	if err != nil {
 		m.respond.BadRequest(w, r, fmt.Errorf("missing form field file"))
 		return
 	}
 	defer func() { _ = fh.Close() }()
-
-	if header.Size > m.maxBytes {
+	buf, err := io.ReadAll(io.LimitReader(fh, limit+1))
+	if err != nil {
+		m.respond.BadRequest(w, r, err)
+		return
+	}
+	if len(buf) == 0 || int64(len(buf)) > limit || (header.Size > 0 && header.Size > limit) {
 		m.respond.BadRequest(w, r, fmt.Errorf("file exceeds max size"))
 		return
 	}
-
 	contentType := header.Header.Get("Content-Type")
-	buf := make([]byte, 512)
-	n, _ := fh.Read(buf)
-	detected := http.DetectContentType(buf[:n])
+	detected := http.DetectContentType(buf)
 	if contentType == "" || contentType == "application/octet-stream" {
 		contentType = detected
 	}
-	body := io.MultiReader(strings.NewReader(string(buf[:n])), fh)
-
-	if len(m.allowedTypes) > 0 {
-		if _, ok := m.allowedTypes[strings.ToLower(contentType)]; !ok {
-			m.respond.BadRequest(w, r, fmt.Errorf("content type %s not allowed", contentType))
-			return
-		}
-	}
-
-	ext := strings.ToLower(filepath.Ext(header.Filename))
-	key := uuid.NewString() + ext
-
-	if err := m.blobs.Put(r.Context(), key, contentType, body, header.Size); err != nil {
-		m.respond.InternalServerError(w, r, err)
+	contentType = strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
+	if !m.typeOK(target, contentType) {
+		m.respond.BadRequest(w, r, fmt.Errorf("content type %s not allowed", contentType))
 		return
 	}
-
-	url, err := m.blobs.URL(r.Context(), key)
-	if err != nil {
-		_ = m.blobs.Delete(r.Context(), key)
-		m.respond.InternalServerError(w, r, err)
-		return
-	}
-
 	principal := authz.PrincipalFrom(r)
 	if principal == nil {
-		_ = m.blobs.Delete(r.Context(), key)
 		m.respond.Unauthorized(w, r, fmt.Errorf("missing principal"))
+		return
+	}
+	recordUUID, err := target.Locate(r.Context(), recordID)
+	if err != nil {
+		m.respondUpload(w, r, err)
+		return
+	}
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	key := blob.UploadKey(target.Class, resource, recordUUID.String(), field, ext, time.Now())
+	if err := m.blobs.Put(r.Context(), key, contentType, bytes.NewReader(buf), int64(len(buf))); err != nil {
+		m.respond.InternalServerError(w, r, err)
 		return
 	}
 	actor := stamp.Ptr(principal.ID)
 	object := &Object{
-		Key:         key,
-		OwnerID:     principal.ID,
-		ContentType: contentType,
-		Size:        header.Size,
-		Driver:      m.blobs.Driver(),
-		IsVisible:   true,
-		Metadata:    []byte(`{}`),
-		CreatedBy:   actor,
-		UpdatedBy:   actor,
+		Key: key, OwnerID: principal.ID, ContentType: contentType, Size: int64(len(buf)),
+		Driver: m.blobs.Driver(), IsVisible: true, Metadata: []byte(`{}`), CreatedBy: actor, UpdatedBy: actor,
 	}
-	if err := storage.WithTx(m.db, r.Context(), func(tx pgx.Tx) error {
+	var replaceKey string
+	err = storage.WithTx(m.db, r.Context(), func(tx pgx.Tx) error {
 		if err := m.files.CreateTx(r.Context(), tx, object); err != nil {
 			return err
 		}
+		replaced, err := target.Bind(r.Context(), r, recordID, object, buf, tx)
+		if err != nil {
+			return err
+		}
+		replaceKey = replaced
 		if m.events == nil {
 			return nil
 		}
 		e, err := event.New(event.NewParams{
-			Source:           m.eventSource,
-			Type:             event.TypeFileUploaded,
-			Subject:          "urn:file:" + key,
-			DataSchema:       event.SchemaFileUploaded,
-			CorrelationID:    middleware.GetReqID(r.Context()),
-			TraceParent:      r.Header.Get("traceparent"),
-			AggregateVersion: 1,
+			Source: m.eventSource, Type: event.TypeFileUploaded, Subject: "urn:file:" + key,
+			DataSchema: event.SchemaFileUploaded, CorrelationID: middleware.GetReqID(r.Context()),
+			TraceParent: r.Header.Get("traceparent"), AggregateVersion: 1,
 			Data: map[string]any{
-				"file_id":        key,
-				"size_bytes":     header.Size,
-				"media_type":     contentType,
-				"storage_driver": m.blobs.Driver(),
-				"version":        1,
+				"file_id": key, "size_bytes": len(buf), "media_type": contentType,
+				"storage_driver": m.blobs.Driver(), "version": 1,
 			},
 		})
 		if err != nil {
 			return err
 		}
 		return m.events.Enqueue(r.Context(), tx, m.eventTopic, key, "file", e, fileEventHeaders(r))
-	}); err != nil {
+	})
+	if err != nil {
 		_ = m.blobs.Delete(r.Context(), key)
-		m.respond.InternalServerError(w, r, err)
+		m.respondUpload(w, r, err)
 		return
 	}
-
+	if replaceKey != "" && replaceKey != key {
+		_ = storage.WithTx(m.db, r.Context(), func(tx pgx.Tx) error {
+			old := &Object{Key: replaceKey}
+			return m.files.SoftDeleteTx(r.Context(), tx, old, actor)
+		})
+	}
 	audit.Record(m.audit, m.log, r, audit.ActionCreate, "file", key, map[string]any{
-		"size":         header.Size,
-		"content_type": contentType,
-		"driver":       m.blobs.Driver(),
+		"resource": resource, "field": field, "id": recordID, "size": len(buf), "content_type": contentType,
 	})
-
 	if err := httpx.JSONResponse(w, http.StatusCreated, UploadResponse{
-		Key:         key,
-		URL:         url,
-		Size:        header.Size,
-		ContentType: contentType,
-		Driver:      m.blobs.Driver(),
+		Key: key, Size: int64(len(buf)), ContentType: contentType, Resource: resource, Field: field, ID: recordID,
 	}); err != nil {
+		m.respond.InternalServerError(w, r, err)
+	}
+}
+
+func (m *Module) typeOK(target Target, contentType string) bool {
+	allowed := m.allowedTypes
+	if len(target.Types) > 0 {
+		allowed = make(map[string]struct{}, len(target.Types))
+		for _, kind := range target.Types {
+			allowed[strings.ToLower(kind)] = struct{}{}
+		}
+	}
+	if len(allowed) == 0 {
+		return true
+	}
+	_, ok := allowed[contentType]
+	return ok
+}
+
+func (m *Module) respondUpload(w http.ResponseWriter, r *http.Request, err error) {
+	var call *CallError
+	switch {
+	case errors.As(err, &call):
+		switch call.Status {
+		case http.StatusBadRequest:
+			m.respond.BadRequest(w, r, call.Err)
+		case http.StatusForbidden:
+			m.respond.Forbidden(w, r, call.Err)
+		case http.StatusNotFound:
+			m.respond.NotFound(w, r, call.Err)
+		case http.StatusConflict:
+			m.respond.Conflict(w, r, call.Err)
+		default:
+			m.respond.InternalServerError(w, r, call.Err)
+		}
+	case errors.Is(err, ErrTarget), errors.Is(err, ErrSlot):
+		m.respond.BadRequest(w, r, err)
+	case errors.Is(err, authz.ErrForbidden):
+		m.respond.Forbidden(w, r, err)
+	case errors.Is(err, storage.ErrNotFound):
+		m.respond.NotFound(w, r, err)
+	case errors.Is(err, storage.ErrConflict), errors.Is(err, storage.ErrVersionMismatch):
+		m.respond.Conflict(w, r, err)
+	default:
 		m.respond.InternalServerError(w, r, err)
 	}
 }
@@ -236,26 +287,17 @@ func (m *Module) uploadHandler(w http.ResponseWriter, r *http.Request) {
 // getFileHandler godoc
 //
 //	@Summary		Get a file
-//	@Description	Streams from local disk, or redirects to a presigned S3/MinIO URL
+//	@Description	Streams the stored bytes. The key may contain slashes. MinIO stays on the Docker network. The browser only talks to this API.
 //	@Tags			files
 //	@Produce		octet-stream
-//	@Param			key	path		string	true	"Object key"
+//	@Param			key	path		string	true	"Object key, including slashes"
 //	@Success		200	{file}		binary
 //	@Failure		404	{object}	httpx.ErrorResponse
 //	@Router			/files/{key} [get]
 func (m *Module) getHandler(w http.ResponseWriter, r *http.Request) {
-	key := chi.URLParam(r, "key")
+	key := objectKey(r)
 	if _, err := m.files.Get(r.Context(), key); err != nil {
 		m.respond.NotFound(w, r, err)
-		return
-	}
-	if m.blobs.Driver() != "local" {
-		url, err := m.blobs.URL(r.Context(), key)
-		if err != nil {
-			m.respond.NotFound(w, r, err)
-			return
-		}
-		http.Redirect(w, r, url, http.StatusFound)
 		return
 	}
 
@@ -276,14 +318,14 @@ func (m *Module) getHandler(w http.ResponseWriter, r *http.Request) {
 //
 //	@Summary	Delete a file
 //	@Tags		files
-//	@Param		key	path		string	true	"Object key"
+//	@Param		key	path		string	true	"Object key, including slashes"
 //	@Success	204	{string}	string	"No Content"
 //	@Failure	401	{object}	httpx.ErrorResponse
 //	@Failure	500	{object}	httpx.ErrorResponse
 //	@Security	BearerAuth
 //	@Router		/files/{key} [delete]
 func (m *Module) deleteHandler(w http.ResponseWriter, r *http.Request) {
-	key := chi.URLParam(r, "key")
+	key := objectKey(r)
 	principal := authz.PrincipalFrom(r)
 	if principal == nil {
 		m.respond.Unauthorized(w, r, fmt.Errorf("missing principal"))
@@ -294,7 +336,7 @@ func (m *Module) deleteHandler(w http.ResponseWriter, r *http.Request) {
 		m.respond.NotFound(w, r, err)
 		return
 	}
-	if object.OwnerID != principal.ID && principal.RoleLevel < 3 {
+	if object.OwnerID != principal.ID && principal.RoleName != "admin" {
 		m.respond.Forbidden(w, r, nil)
 		return
 	}
@@ -330,6 +372,10 @@ func (m *Module) deleteHandler(w http.ResponseWriter, r *http.Request) {
 	audit.Record(m.audit, m.log, r, audit.ActionDelete, "file", key, nil)
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func objectKey(r *http.Request) string {
+	return strings.TrimPrefix(chi.URLParam(r, "*"), "/")
 }
 
 func fileEventHeaders(r *http.Request) map[string]string {

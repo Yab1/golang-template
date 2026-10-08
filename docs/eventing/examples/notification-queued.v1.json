@@ -1,0 +1,21 @@
+{
+  "specversion": "1.0",
+  "id": "10000000-0000-4000-8000-000000000091",
+  "source": "/services/api",
+  "type": "dev.yab1.golangtemplate.notification.queued.v1",
+  "subject": "urn:notification:91000000-0000-4000-8000-000000000001",
+  "time": "2026-10-05T08:00:00Z",
+  "datacontenttype": "application/json",
+  "dataschema": "/docs/eventing/schemas/notification-queued.v1.schema.json",
+  "correlationid": "30000000-0000-4000-8000-000000000091",
+  "data": {
+    "notification_id": "91000000-0000-4000-8000-000000000001",
+    "reference_id": "EMR-NTF-A7K2M",
+    "user_id": "20000000-0000-4000-8000-000000000001",
+    "channel": "in_app",
+    "category": "alert",
+    "status": "pending",
+    "version": 1
+  },
+  "aggregateversion": 1
+}

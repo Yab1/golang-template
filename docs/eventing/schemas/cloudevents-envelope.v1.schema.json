@@ -35,7 +35,7 @@
     },
     "subject": {
       "type": "string",
-      "pattern": "^urn:(user|post|file):[A-Za-z0-9._-]+$"
+      "pattern": "^urn:(user|post|file|notification):[A-Za-z0-9._-]+$"
     },
     "time": {
       "type": "string",

@@ -13,6 +13,8 @@ const (
 
 	TypeFileUploaded = "dev.yab1.golangtemplate.file.uploaded.v1"
 	TypeFileDeleted  = "dev.yab1.golangtemplate.file.deleted.v1"
+
+	TypeNotificationQueued = "dev.yab1.golangtemplate.notification.queued.v1"
 )
 
 const (
@@ -26,4 +28,5 @@ const (
 	SchemaPostDeleted           = "/docs/eventing/schemas/post-deleted.v1.schema.json"
 	SchemaFileUploaded          = "/docs/eventing/schemas/file-uploaded.v1.schema.json"
 	SchemaFileDeleted           = "/docs/eventing/schemas/file-deleted.v1.schema.json"
+	SchemaNotificationQueued    = "/docs/eventing/schemas/notification-queued.v1.schema.json"
 )

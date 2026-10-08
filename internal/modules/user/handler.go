@@ -51,7 +51,7 @@ func (m *Module) createUserHandler(w http.ResponseWriter, r *http.Request) {
 		IsActive:  !m.verifyRequired,
 		IsVisible: true,
 		Role: Role{
-			Name: "user",
+			Name: DefaultRole,
 		},
 	}
 
@@ -82,6 +82,73 @@ func (m *Module) createUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := httpx.JSONResponse(w, http.StatusCreated, u); err != nil {
+		m.respond.InternalServerError(w, r, err)
+	}
+}
+
+// listUsersHandler godoc
+//
+//	@Summary		List users
+//	@Description	Admin lists users with optional search, role, and is_active filters.
+//	@Tags			users
+//	@Produce		json
+//	@Param			limit		query		int		false	"Page size"
+//	@Param			offset		query		int		false	"Offset"
+//	@Param			cursor		query		string	false	"Cursor (created_at sort)"
+//	@Param			search		query		string	false	"Search email, username, or reference_id"
+//	@Param			role		query		string	false	"Filter by role name"
+//	@Param			is_active	query		bool	false	"Filter by active flag"
+//	@Success		200			{object}	httpx.ListResponse{results=[]User}
+//	@Failure		400			{object}	httpx.ErrorResponse
+//	@Failure		401			{object}	httpx.ErrorResponse
+//	@Failure		403			{object}	httpx.ErrorResponse
+//	@Failure		500			{object}	httpx.ErrorResponse
+//	@Security		BearerAuth
+//	@Router			/users [get]
+func (m *Module) listUsersHandler(w http.ResponseWriter, r *http.Request) {
+	fq := NewListQuery()
+	fq, err := fq.Parse(r)
+	if err != nil {
+		m.respond.BadRequest(w, r, err)
+		return
+	}
+
+	result, err := m.users.List(r.Context(), fq)
+	if err != nil {
+		m.respond.InternalServerError(w, r, err)
+		return
+	}
+
+	var page httpx.Pagination
+	if fq.UsingCursor() {
+		page = httpx.CursorPagination(fq.Limit, result.NextCursor)
+	} else {
+		page = httpx.OffsetPagination(result.Total, fq.Limit, fq.Offset)
+	}
+
+	if err := httpx.JSONList(w, http.StatusOK, result.Items, page); err != nil {
+		m.respond.InternalServerError(w, r, err)
+	}
+}
+
+// listRolesHandler godoc
+//
+//	@Summary		List roles
+//	@Description	Returns roles (name, level, description). Requires auth.
+//	@Tags			roles
+//	@Produce		json
+//	@Success		200	{object}	httpx.ListResponse{results=[]Role}
+//	@Failure		401	{object}	httpx.ErrorResponse
+//	@Failure		500	{object}	httpx.ErrorResponse
+//	@Security		BearerAuth
+//	@Router			/roles [get]
+func (m *Module) listRolesHandler(w http.ResponseWriter, r *http.Request) {
+	roles, err := m.roles.List(r.Context())
+	if err != nil {
+		m.respond.InternalServerError(w, r, err)
+		return
+	}
+	if err := httpx.JSONList(w, http.StatusOK, roles, httpx.OffsetPagination(int64(len(roles)), len(roles), 0)); err != nil {
 		m.respond.InternalServerError(w, r, err)
 	}
 }
