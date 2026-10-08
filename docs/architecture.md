@@ -37,7 +37,7 @@ make lint
 
 ## Env-driven features
 
-Copy `.envrc.example` → `.envrc`, then `direnv allow`. Flip flags without code changes.
+Copy `.envrc.example` → `.envrc`, then `direnv allow`. Flip flags without code changes. Do **not** feed `.envrc` into Make (`-include` / `source` hacks) — that empties `DB_ADDR` and similar; see `docs/style.md` §2.4.
 
 Config loaders live under `internal/platform/config/` — one file per env section (`auth.go`, `mail.go`, …). `Load()` assembles them.
 

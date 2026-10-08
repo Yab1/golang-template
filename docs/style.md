@@ -118,6 +118,8 @@ direnv allow
 
 Shell gets `export`’d vars. **Docker Compose does not read `.envrc`.** Deploy uses `deploy/.env` (`KEY=value`, no `export`). One key catalog: `.envrc.example`.
 
+**Never** `-include .envrc` (or otherwise parse `.envrc`) from the `Makefile`. Make treats `#`, `$`, and quotes as its own syntax, so `DB_ADDR` and secrets become empty or corrupted (`user=… database=` / unix socket errors). Env for `make run` / `make seed` / `make migrate-*` comes from **direnv in the shell** only. `migrate-up` / `migrate-down` fail fast if `DB_ADDR` is unset (`direnv allow?`).
+
 ### 2.5 Tests
 
 ```bash

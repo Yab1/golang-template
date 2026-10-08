@@ -16,7 +16,7 @@ make install-hooks   # once: blocks direct push to main
 
 ## Environment Variables
 
-Copy [`.envrc.example`](.envrc.example) to `.envrc`, fill secrets, then `direnv allow`.
+Copy [`.envrc.example`](.envrc.example) to `.envrc`, fill secrets, then `direnv allow`. Make does **not** load `.envrc` (that corrupts `DB_ADDR`); the shell must have direnv hooked. If `make run` connects as your OS user on a unix socket, `echo $DB_ADDR` is empty — fix direnv, do not `-include .envrc` in the Makefile.
 
 Deploy uses **`deploy/.env`**: same keys, no `export`, Docker DNS (`postgres`, `redis`, `kafka:9093`, `schema-registry:8081`). You create that file; there is no second example. Set `EVENT_WORKER_ADDR=:8082` so it does not collide with the schema registry on `:8081`.
 

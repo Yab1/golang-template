@@ -1,5 +1,4 @@
--include .envrc
-
+# Env via direnv (.envrc). Do not -include .envrc here: Make treats quotes/#/$ literally and corrupts URLs.
 MIGRATIONS_PATH = ./cmd/migrate/migrations
 
 # Pinned CLI tools (install with: make install-tools)
@@ -58,7 +57,7 @@ kafka-replay: ## Replay a DLQ topic (topic=… [limit=100])
 	@go run ./cmd/replay -topic "$(topic)" -limit "$(or $(limit),0)"
 
 .PHONY: release
-release: ## Full release pipeline (POST last)
+release: ## Full release pipeline (SEED last)
 	@./scripts/release.sh
 
 .PHONY: deploy
@@ -126,11 +125,13 @@ migrate-create: ## Create a new SQL migration pair
 
 .PHONY: migrate-up
 migrate-up: ## Apply migrations
-	@migrate -path=$(MIGRATIONS_PATH) -database=$(DB_ADDR) up
+	@test -n "$$DB_ADDR" || (echo "DB_ADDR not set (direnv allow?)" && exit 1)
+	@migrate -path=$(MIGRATIONS_PATH) -database="$$DB_ADDR" up
 
 .PHONY: migrate-down
 migrate-down: ## Roll back migrations
-	@migrate -path=$(MIGRATIONS_PATH) -database=$(DB_ADDR) down $(filter-out $@,$(MAKECMDGOALS))
+	@test -n "$$DB_ADDR" || (echo "DB_ADDR not set (direnv allow?)" && exit 1)
+	@migrate -path=$(MIGRATIONS_PATH) -database="$$DB_ADDR" down $(filter-out $@,$(MAKECMDGOALS))
 
 # Allow: make migrate-create create_users
 %:

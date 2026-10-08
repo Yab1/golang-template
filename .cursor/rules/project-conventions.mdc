@@ -62,6 +62,13 @@ Keep entries short. Link related code paths or docs if helpful.
 
 Add new `##` sections below for project-wide conventions (seed flow, env/secrets, module scaffolding, deploy notes, …). Prefer one always-on file over many tiny always-on rules. Use a separate `.mdc` with `globs` only when the rule is file-type specific.
 
+## Env / Makefile
+
+- Load secrets via **direnv** (`.envrc` → `direnv allow`). Shell must have the direnv hook.
+- **Forbidden:** `-include .envrc` in the `Makefile`, or wrapping recipes with `. ./.envrc && …`. Make corrupts `export` lines that contain `#`, `$`, or quotes → empty `DB_ADDR` → pgx connects as the OS user on a unix socket.
+- `make migrate-up` / `migrate-down` already require `DB_ADDR` set; if unset, message is `direnv allow?`.
+- Symptom of regression: `failed to connect to user=<osuser> database=` / `/tmp/.s.PGSQL.5432`.
+
 ## Postman
 
 When creating or editing anything under `postman/`, **read and follow** [`.cursor/rules/postman-collections.mdc`](postman-collections.mdc) (naming, `base_url`/`root_url`, snake_case vars, dynamic payload vars). Do not invent a parallel style.

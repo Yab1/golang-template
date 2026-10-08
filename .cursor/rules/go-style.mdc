@@ -88,3 +88,4 @@ Scaffold: `make new-module name=<singular>`. Register `Routes` in `cmd/api/api.g
 - Re-litigate Uber in code — link the guide heading
 - Copy EMR clinical modules/roles/FHIR blindly into this template
 - Add Chromium/PDF/infra concerns unless the task asks for them
+- **Never** `-include .envrc` / `with_env` / Make-sourcing of `.envrc` — empties `DB_ADDR` (Make eats `#`/`$`/quotes). Env = direnv in the shell only (`docs/style.md` §2.4)
